@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Home | {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="hero" aria-labelledby="hero-title">
+  <p class="eyebrow">Manufacturing Quality Platform</p>
+  <h1 id="hero-title">Track inspections. Understand defects. Improve quality.</h1>
+  <p class="hero-copy">
+    QualiTrack is the foundation for a production-ready system that will help teams
+    record quality inspections, review defect trends, and make better factory decisions.
+  </p>
+  <div class="hero-actions">
+    <a class="button" href="/docs">View API Docs</a>
+    <a class="button button-secondary" href="/health">Check System Health</a>
+  </div>
+</section>
+
+<section class="info-grid" aria-label="Foundation status">
+  <article class="info-card">
+    <h2>Phase 0</h2>
+    <p>The application shell, database wiring, templates, and static assets are ready.</p>
+  </article>
+  <article class="info-card">
+    <h2>No login yet</h2>
+    <p>Authentication and business features will be added safely in later phases.</p>
+  </article>
+  <article class="info-card">
+    <h2>API ready</h2>
+    <p>Swagger documentation is enabled so future endpoints can be explored easily.</p>
+  </article>
+</section>
+{% endblock %}
