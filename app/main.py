@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from app.core.config import get_settings
 from app.database.session import get_db
 from app.routers.auth import get_optional_current_user, router as auth_router
+from app.routers.factories import router as factories_router
 
 settings = get_settings()
 
@@ -22,6 +23,7 @@ app = FastAPI(
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.include_router(auth_router)
+app.include_router(factories_router)
 templates = Jinja2Templates(directory="app/templates")
 
 

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}{{ factory.name }} | {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="page-header" aria-labelledby="factory-title">
+  <div>
+    <p class="eyebrow">Factory Detail</p>
+    <h1 id="factory-title">{{ factory.name }}</h1>
+    <p class="section-copy">Departments, production lines, and machines will appear here in later phases.</p>
+  </div>
+  <div class="detail-actions">
+    <a class="button button-secondary" href="/factories">Back to Factories</a>
+    <a class="button" href="/factories/{{ factory.id }}/edit">Edit</a>
+  </div>
+</section>
+
+<section class="profile-card detail-card" aria-label="Factory details">
+  <dl class="profile-details">
+    <div>
+      <dt>Code</dt>
+      <dd>{{ factory.code }}</dd>
+    </div>
+    <div>
+      <dt>Location</dt>
+      <dd>{{ factory.location }}</dd>
+    </div>
+    <div>
+      <dt>Status</dt>
+      <dd><span class="status-pill status-{{ factory.status }}">{{ factory.status }}</span></dd>
+    </div>
+    <div>
+      <dt>Created</dt>
+      <dd>{{ factory.created_at }}</dd>
+    </div>
+  </dl>
+  <form class="delete-form" action="/factories/{{ factory.id }}/delete" method="post">
+    <button class="button danger-button" type="submit">Mark Inactive</button>
+  </form>
+</section>
+{% endblock %}

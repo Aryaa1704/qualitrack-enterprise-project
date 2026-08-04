@@ -2,7 +2,7 @@
 
 QualiTrack is a Manufacturing Quality Inspection & Defect Analytics Platform.
 
-This repository contains the Phase 1 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, and JWT-backed user authentication. It does not include role permissions, CRUD screens, or manufacturing business workflows yet.
+This repository contains the Phase 2 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, and factory management. It does not include role permissions or lower-level manufacturing hierarchy modules yet.
 
 ## For builders: what this means in simple words
 
@@ -14,6 +14,7 @@ Think of this phase like preparing an empty factory building before machines arr
 - **Templates and CSS**: the basic page frame and visual style.
 - **Health check**: a simple endpoint that says, "the app is alive."
 - **Authentication**: inspectors can register, log in, log out, and view a protected profile.
+- **Factory management**: authenticated users can create, review, update, and soft-delete factories.
 
 ## Project structure
 
@@ -86,6 +87,7 @@ Then open:
 - Register: <http://127.0.0.1:8000/auth/register>
 - Login: <http://127.0.0.1:8000/auth/login>
 - Profile: <http://127.0.0.1:8000/auth/profile>
+- Factories: <http://127.0.0.1:8000/factories>
 
 
 ## Authentication endpoints
@@ -100,6 +102,16 @@ Run migrations before first use so the `users` table exists:
 ```bash
 alembic upgrade head
 ```
+
+## Factory endpoints
+
+- `POST /factories` creates a factory.
+- `GET /factories` returns a paginated factory list.
+- `GET /factories/{factory_id}` returns one factory.
+- `PUT /factories/{factory_id}` updates a factory.
+- `DELETE /factories/{factory_id}` soft-deletes a factory by marking it inactive.
+
+Factory pages and APIs require an authenticated user session.
 
 ## Tests
 

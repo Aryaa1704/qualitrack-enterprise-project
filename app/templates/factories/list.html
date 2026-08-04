@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Factories | {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="page-header" aria-labelledby="factories-title">
+  <div>
+    <p class="eyebrow">Factory Management</p>
+    <h1 id="factories-title">Factories</h1>
+    <p class="section-copy">Manage the top-level manufacturing sites in the plant hierarchy.</p>
+  </div>
+  <a class="button" href="/factories/new">New Factory</a>
+</section>
+
+<section class="table-card" aria-label="Factory list">
+  {% if factories %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Code</th>
+          <th>Location</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for factory in factories %}
+          <tr>
+            <td><a href="/factories/{{ factory.id }}">{{ factory.name }}</a></td>
+            <td>{{ factory.code }}</td>
+            <td>{{ factory.location }}</td>
+            <td><span class="status-pill status-{{ factory.status }}">{{ factory.status }}</span></td>
+            <td class="table-actions">
+              <a href="/factories/{{ factory.id }}">View</a>
+              <a href="/factories/{{ factory.id }}/edit">Edit</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-state">No factories yet. Create the first factory to begin building the plant hierarchy.</p>
+  {% endif %}
+</section>
+
+<nav class="pagination" aria-label="Factory pagination">
+  {% if page > 1 %}
+    <a class="button button-secondary" href="/factories?page={{ page - 1 }}&per_page={{ per_page }}">Previous</a>
+  {% endif %}
+  <span>Page {{ page }} of {{ pages }} · {{ total }} factories</span>
+  {% if page < pages %}
+    <a class="button button-secondary" href="/factories?page={{ page + 1 }}&per_page={{ per_page }}">Next</a>
+  {% endif %}
+</nav>
+{% endblock %}
