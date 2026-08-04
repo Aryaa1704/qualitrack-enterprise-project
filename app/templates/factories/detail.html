@@ -7,7 +7,7 @@
   <div>
     <p class="eyebrow">Factory Detail</p>
     <h1 id="factory-title">{{ factory.name }}</h1>
-    <p class="section-copy">Departments, production lines, and machines will appear here in later phases.</p>
+    <p class="section-copy">Manage departments and production lines for this manufacturing site.</p>
   </div>
   <div class="detail-actions">
     <a class="button button-secondary" href="/factories">Back to Factories</a>
@@ -17,25 +17,94 @@
 
 <section class="profile-card detail-card" aria-label="Factory details">
   <dl class="profile-details">
-    <div>
-      <dt>Code</dt>
-      <dd>{{ factory.code }}</dd>
-    </div>
-    <div>
-      <dt>Location</dt>
-      <dd>{{ factory.location }}</dd>
-    </div>
-    <div>
-      <dt>Status</dt>
-      <dd><span class="status-pill status-{{ factory.status }}">{{ factory.status }}</span></dd>
-    </div>
-    <div>
-      <dt>Created</dt>
-      <dd>{{ factory.created_at }}</dd>
-    </div>
+    <div><dt>Code</dt><dd>{{ factory.code }}</dd></div>
+    <div><dt>Location</dt><dd>{{ factory.location }}</dd></div>
+    <div><dt>Status</dt><dd><span class="status-pill status-{{ factory.status }}">{{ factory.status }}</span></dd></div>
+    <div><dt>Created</dt><dd>{{ factory.created_at }}</dd></div>
   </dl>
   <form class="delete-form" action="/factories/{{ factory.id }}/delete" method="post">
     <button class="button danger-button" type="submit">Mark Inactive</button>
   </form>
+</section>
+
+<section id="departments" class="hierarchy-section" aria-labelledby="departments-title">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Departments</p>
+      <h2 id="departments-title">Department groups</h2>
+    </div>
+    <a class="button button-secondary" href="/factories/{{ factory.id }}/departments?page=1&per_page=10">API page</a>
+  </div>
+  <form class="inline-form" action="/factories/{{ factory.id }}/departments" method="post">
+    <input name="name" placeholder="Department name" required maxlength="120">
+    <input name="code" placeholder="Code" required maxlength="50">
+    <select name="status"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+    <button class="button" type="submit">Add Department</button>
+  </form>
+  <div class="table-card">
+    {% if departments %}
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Code</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for department in departments %}
+        <tr>
+          <td>{{ department.name }}</td>
+          <td>{{ department.code }}</td>
+          <td><span class="status-pill status-{{ department.status }}">{{ department.status }}</span></td>
+          <td>{{ department.created_at }}</td>
+          <td>
+            <form action="/factories/{{ factory.id }}/departments/{{ department.id }}/delete" method="post">
+              <button class="link-button danger-link" type="submit">Mark inactive</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="empty-state">No active departments yet.</p>{% endif %}
+  </div>
+</section>
+
+<section id="production-lines" class="hierarchy-section" aria-labelledby="production-lines-title">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Production Lines</p>
+      <h2 id="production-lines-title">Factory production lines</h2>
+    </div>
+    <a class="button button-secondary" href="/factories/{{ factory.id }}/production-lines?page=1&per_page=10">API page</a>
+  </div>
+  <form class="inline-form" action="/factories/{{ factory.id }}/production-lines" method="post">
+    <input name="name" placeholder="Line name" required maxlength="120">
+    <input name="code" placeholder="Code" required maxlength="50">
+    <select name="department_id">
+      <option value="">No department</option>
+      {% for department in departments %}<option value="{{ department.id }}">{{ department.name }}</option>{% endfor %}
+    </select>
+    <select name="status"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+    <button class="button" type="submit">Add Production Line</button>
+  </form>
+  <div class="table-card">
+    {% if production_lines %}
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Code</th><th>Department</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for line in production_lines %}
+        <tr>
+          <td>{{ line.name }}</td>
+          <td>{{ line.code }}</td>
+          <td>{{ line.department.name if line.department else "Unassigned" }}</td>
+          <td><span class="status-pill status-{{ line.status }}">{{ line.status }}</span></td>
+          <td>{{ line.created_at }}</td>
+          <td>
+            <form action="/factories/{{ factory.id }}/production-lines/{{ line.id }}/delete" method="post">
+              <button class="link-button danger-link" type="submit">Mark inactive</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="empty-state">No active production lines yet.</p>{% endif %}
+  </div>
 </section>
 {% endblock %}

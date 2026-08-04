@@ -2,7 +2,7 @@
 
 QualiTrack is a Manufacturing Quality Inspection & Defect Analytics Platform.
 
-This repository contains the Phase 2 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, and factory management. It does not include role permissions or lower-level manufacturing hierarchy modules yet.
+This repository contains the Phase 3 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, and factory management, departments, and production lines. It does not include role permissions, machines, products, or batches yet.
 
 ## For builders: what this means in simple words
 
@@ -15,6 +15,7 @@ Think of this phase like preparing an empty factory building before machines arr
 - **Health check**: a simple endpoint that says, "the app is alive."
 - **Authentication**: inspectors can register, log in, log out, and view a protected profile.
 - **Factory management**: authenticated users can create, review, update, and soft-delete factories.
+- **Departments and production lines**: authenticated users can manage factory-scoped departments and production lines, including optional department grouping for lines.
 
 ## Project structure
 
@@ -111,7 +112,20 @@ alembic upgrade head
 - `PUT /factories/{factory_id}` updates a factory.
 - `DELETE /factories/{factory_id}` soft-deletes a factory by marking it inactive.
 
-Factory pages and APIs require an authenticated user session.
+## Department and production line endpoints
+
+- `POST /factories/{factory_id}/departments` creates a factory-scoped department.
+- `GET /factories/{factory_id}/departments` returns active departments with pagination.
+- `GET /factories/{factory_id}/departments/{dept_id}` returns one active department.
+- `PUT /factories/{factory_id}/departments/{dept_id}` updates a department.
+- `DELETE /factories/{factory_id}/departments/{dept_id}` soft-deletes a department by marking it inactive.
+- `POST /factories/{factory_id}/production-lines` creates a factory-scoped production line.
+- `GET /factories/{factory_id}/production-lines` returns active production lines with pagination.
+- `GET /factories/{factory_id}/production-lines/{line_id}` returns one active production line.
+- `PUT /factories/{factory_id}/production-lines/{line_id}` updates a production line.
+- `DELETE /factories/{factory_id}/production-lines/{line_id}` soft-deletes a production line by marking it inactive.
+
+Factory, department, and production line pages and APIs require an authenticated user session.
 
 ## Tests
 
