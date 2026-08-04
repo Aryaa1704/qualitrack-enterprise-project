@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} | {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="auth-card" aria-labelledby="factory-form-title">
+  <p class="eyebrow">Factory Management</p>
+  <h1 id="factory-form-title">{{ form_title }}</h1>
+  <form class="auth-form" action="{{ form_action }}" method="post">
+    <label for="name">Name</label>
+    <input id="name" name="name" type="text" maxlength="120" value="{{ factory.name if factory else '' }}" required />
+
+    <label for="code">Code</label>
+    <input id="code" name="code" type="text" maxlength="50" value="{{ factory.code if factory else '' }}" required />
+
+    <label for="location">Location</label>
+    <input id="location" name="location" type="text" maxlength="255" value="{{ factory.location if factory else '' }}" required />
+
+    <label for="status">Status</label>
+    <select id="status" name="status" required>
+      {% set selected_status = factory.status if factory else 'active' %}
+      <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
+      <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
+    </select>
+
+    <div class="form-actions">
+      <button class="button" type="submit">Save Factory</button>
+      <a class="button button-secondary" href="/factories">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

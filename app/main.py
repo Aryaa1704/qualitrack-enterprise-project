@@ -1,11 +1,16 @@
 """FastAPI application entry point for QualiTrack."""
 
-from fastapi import FastAPI, Request
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.core.config import get_settings
+from app.database.session import get_db
+from app.routers.auth import get_optional_current_user, router as auth_router
+from app.routers.factories import router as factories_router
 
 settings = get_settings()
 
@@ -17,11 +22,13 @@ app = FastAPI(
 )
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.include_router(auth_router)
+app.include_router(factories_router)
 templates = Jinja2Templates(directory="app/templates")
 
 
 @app.get("/", response_class=HTMLResponse, tags=["Pages"])
-def home(request: Request) -> HTMLResponse:
+def home(request: Request, current_user: Annotated[object | None, Depends(get_optional_current_user)] = None) -> HTMLResponse:
     """Render the public home page."""
 
     return templates.TemplateResponse(
@@ -30,6 +37,7 @@ def home(request: Request) -> HTMLResponse:
             "request": request,
             "app_name": settings.app_name,
             "app_description": settings.app_description,
+            "current_user": current_user,
         },
     )
 

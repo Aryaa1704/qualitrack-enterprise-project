@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Profile | {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="profile-card" aria-labelledby="profile-title">
+  <p class="eyebrow">Protected profile</p>
+  <h1 id="profile-title">{{ current_user.username }}</h1>
+  <dl class="profile-details">
+    <div>
+      <dt>Email</dt>
+      <dd>{{ current_user.email }}</dd>
+    </div>
+    <div>
+      <dt>Role</dt>
+      <dd>{{ current_user.role }}</dd>
+    </div>
+    <div>
+      <dt>Status</dt>
+      <dd>{% if current_user.is_active %}Active{% else %}Inactive{% endif %}</dd>
+    </div>
+    <div>
+      <dt>Created</dt>
+      <dd>{{ current_user.created_at }}</dd>
+    </div>
+  </dl>
+</section>
+{% endblock %}

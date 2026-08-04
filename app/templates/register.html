@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Register | {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="auth-card" aria-labelledby="register-title">
+  <p class="eyebrow">Create account</p>
+  <h1 id="register-title">Register for QualiTrack</h1>
+  <p class="auth-copy">Create an inspector account to access protected quality workflows.</p>
+  <form class="auth-form" action="/auth/register" method="post">
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" minlength="3" maxlength="50" autocomplete="username" required />
+
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" autocomplete="email" required />
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required />
+
+    <button class="button" type="submit">Create account</button>
+  </form>
+  <p class="auth-switch">Already registered? <a href="/auth/login">Log in</a>.</p>
+</section>
+{% endblock %}
