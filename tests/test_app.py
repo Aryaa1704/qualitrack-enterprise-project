@@ -142,3 +142,238 @@ def test_factory_list_paginates() -> None:
     assert first_page.json()["pages"] >= 2
     assert len(first_page.json()["items"]) == 5
     assert len(second_page.json()["items"]) == 5
+
+
+def _create_factory(auth_client: TestClient) -> dict:
+    unique = uuid4().hex[:8]
+    response = auth_client.post(
+        "/factories",
+        json={
+            "name": f"Factory {unique}",
+            "code": f"F-{unique}",
+            "location": "Columbus, OH",
+            "status": "active",
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+def test_openapi_schema_includes_department_and_production_line_endpoints() -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert "/factories/{factory_id}/departments" in paths
+    assert "/factories/{factory_id}/departments/{dept_id}" in paths
+    assert "/factories/{factory_id}/production-lines" in paths
+    assert "/factories/{factory_id}/production-lines/{line_id}" in paths
+    assert {"post", "get"}.issubset(paths["/factories/{factory_id}/departments"])
+    assert {"get", "put", "delete"}.issubset(paths["/factories/{factory_id}/departments/{dept_id}"])
+    assert {"post", "get"}.issubset(paths["/factories/{factory_id}/production-lines"])
+    assert {"get", "put", "delete"}.issubset(paths["/factories/{factory_id}/production-lines/{line_id}"])
+
+
+def test_department_crud_soft_delete_pagination_and_uniqueness() -> None:
+    auth_client = _authenticated_client()
+    factory = _create_factory(auth_client)
+
+    create_response = auth_client.post(
+        f"/factories/{factory['id']}/departments",
+        json={"name": "Assembly", "code": "ASM", "status": "active"},
+    )
+    assert create_response.status_code == 201
+    department = create_response.json()
+    assert department["factory_id"] == factory["id"]
+    assert department["code"] == "ASM"
+
+    duplicate_response = auth_client.post(
+        f"/factories/{factory['id']}/departments",
+        json={"name": "Assembly Duplicate", "code": "ASM", "status": "active"},
+    )
+    assert duplicate_response.status_code == 400
+
+    read_response = auth_client.get(f"/factories/{factory['id']}/departments/{department['id']}")
+    assert read_response.status_code == 200
+    assert read_response.json()["id"] == department["id"]
+
+    update_response = auth_client.put(
+        f"/factories/{factory['id']}/departments/{department['id']}",
+        json={"name": "Final Assembly", "code": "FASM"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["name"] == "Final Assembly"
+
+    unique = uuid4().hex[:8]
+    for index in range(11):
+        response = auth_client.post(
+            f"/factories/{factory['id']}/departments",
+            json={"name": f"Department {index}", "code": f"D-{unique}-{index}"},
+        )
+        assert response.status_code == 201
+
+    page_response = auth_client.get(f"/factories/{factory['id']}/departments?page=1&per_page=5")
+    assert page_response.status_code == 200
+    assert page_response.json()["pages"] >= 2
+    assert len(page_response.json()["items"]) == 5
+
+    delete_response = auth_client.delete(f"/factories/{factory['id']}/departments/{department['id']}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["status"] == "inactive"
+
+    list_response = auth_client.get(f"/factories/{factory['id']}/departments?per_page=50")
+    assert list_response.status_code == 200
+    assert department["id"] not in [item["id"] for item in list_response.json()["items"]]
+
+    deleted_read_response = auth_client.get(f"/factories/{factory['id']}/departments/{department['id']}")
+    assert deleted_read_response.status_code == 404
+
+
+def test_production_line_crud_nullable_department_relationships_and_uniqueness() -> None:
+    auth_client = _authenticated_client()
+    factory = _create_factory(auth_client)
+    department_response = auth_client.post(
+        f"/factories/{factory['id']}/departments",
+        json={"name": "Packaging", "code": "PKG"},
+    )
+    assert department_response.status_code == 201
+    department = department_response.json()
+
+    line_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines",
+        json={"name": "Line 1", "code": "L1", "department_id": department["id"], "status": "active"},
+    )
+    assert line_response.status_code == 201
+    line = line_response.json()
+    assert line["factory_id"] == factory["id"]
+    assert line["department_id"] == department["id"]
+
+    nullable_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines",
+        json={"name": "Unassigned Line", "code": "UA"},
+    )
+    assert nullable_response.status_code == 201
+    assert nullable_response.json()["department_id"] is None
+
+    duplicate_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines",
+        json={"name": "Duplicate Line", "code": "L1"},
+    )
+    assert duplicate_response.status_code == 400
+
+    read_response = auth_client.get(f"/factories/{factory['id']}/production-lines/{line['id']}")
+    assert read_response.status_code == 200
+    assert read_response.json()["id"] == line["id"]
+
+    update_response = auth_client.put(
+        f"/factories/{factory['id']}/production-lines/{line['id']}",
+        json={"name": "Line 1 Updated", "department_id": None},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["name"] == "Line 1 Updated"
+    assert update_response.json()["department_id"] is None
+
+    unique = uuid4().hex[:8]
+    for index in range(10):
+        response = auth_client.post(
+            f"/factories/{factory['id']}/production-lines",
+            json={"name": f"Line {index}", "code": f"L-{unique}-{index}"},
+        )
+        assert response.status_code == 201
+
+    page_response = auth_client.get(f"/factories/{factory['id']}/production-lines?page=1&per_page=5")
+    assert page_response.status_code == 200
+    assert page_response.json()["pages"] >= 2
+    assert len(page_response.json()["items"]) == 5
+
+    delete_response = auth_client.delete(f"/factories/{factory['id']}/production-lines/{line['id']}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["status"] == "inactive"
+
+    deleted_read_response = auth_client.get(f"/factories/{factory['id']}/production-lines/{line['id']}")
+    assert deleted_read_response.status_code == 404
+
+
+def test_openapi_schema_includes_machine_endpoints() -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert "/factories/{factory_id}/machines" in paths
+    assert "/factories/{factory_id}/production-lines/{line_id}/machines" in paths
+    assert "/factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}" in paths
+    assert "/factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}/status" in paths
+    assert "get" in paths["/factories/{factory_id}/machines"]
+    assert "post" in paths["/factories/{factory_id}/production-lines/{line_id}/machines"]
+    assert {"get", "put", "delete"}.issubset(
+        paths["/factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}"]
+    )
+    assert "patch" in paths["/factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}/status"]
+
+
+def test_machine_crud_status_change_filtering_and_factory_detail_ui() -> None:
+    auth_client = _authenticated_client()
+    factory = _create_factory(auth_client)
+    line_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines",
+        json={"name": "Machining", "code": "MACH"},
+    )
+    assert line_response.status_code == 201
+    line = line_response.json()
+
+    create_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines/{line['id']}/machines",
+        json={"name": "CNC Mill", "code": "CNC-1", "type": "CNC", "status": "active"},
+    )
+    assert create_response.status_code == 201
+    machine = create_response.json()
+    assert machine["production_line_id"] == line["id"]
+    assert machine["status"] == "active"
+
+    duplicate_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines/{line['id']}/machines",
+        json={"name": "Duplicate CNC", "code": "CNC-1", "type": "CNC"},
+    )
+    assert duplicate_response.status_code == 400
+
+    detail_response = auth_client.get(
+        f"/factories/{factory['id']}/production-lines/{line['id']}/machines/{machine['id']}"
+    )
+    assert detail_response.status_code == 200
+    assert detail_response.json()["code"] == "CNC-1"
+
+    update_response = auth_client.put(
+        f"/factories/{factory['id']}/production-lines/{line['id']}/machines/{machine['id']}",
+        json={"name": "CNC Mill Updated", "type": "Milling"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["name"] == "CNC Mill Updated"
+    assert update_response.json()["type"] == "Milling"
+
+    status_response = auth_client.patch(
+        f"/factories/{factory['id']}/production-lines/{line['id']}/machines/{machine['id']}/status",
+        json={"status": "maintenance"},
+    )
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "maintenance"
+
+    active_filter_response = auth_client.get(f"/factories/{factory['id']}/machines?status=active")
+    maintenance_filter_response = auth_client.get(f"/factories/{factory['id']}/machines?status=maintenance")
+    line_filter_response = auth_client.get(f"/factories/{factory['id']}/machines?production_line_id={line['id']}")
+    assert active_filter_response.status_code == 200
+    assert maintenance_filter_response.status_code == 200
+    assert line_filter_response.status_code == 200
+    assert machine["id"] not in [item["id"] for item in active_filter_response.json()["items"]]
+    assert machine["id"] in [item["id"] for item in maintenance_filter_response.json()["items"]]
+    assert machine["id"] in [item["id"] for item in line_filter_response.json()["items"]]
+
+    html_response = auth_client.get(f"/factories/{factory['id']}", headers={"accept": "text/html"})
+    assert html_response.status_code == 200
+    assert "CNC Mill Updated" in html_response.text
+    assert "Filter Machines" in html_response.text
+
+    delete_response = auth_client.delete(
+        f"/factories/{factory['id']}/production-lines/{line['id']}/machines/{machine['id']}"
+    )
+    assert delete_response.status_code == 200
+    assert delete_response.json()["status"] == "inactive"
