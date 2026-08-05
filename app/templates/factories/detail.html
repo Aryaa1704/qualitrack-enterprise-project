@@ -107,4 +107,75 @@
     {% else %}<p class="empty-state">No active production lines yet.</p>{% endif %}
   </div>
 </section>
+
+<section id="machines" class="hierarchy-section" aria-labelledby="machines-title">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Machines</p>
+      <h2 id="machines-title">Production line machines</h2>
+      <p class="section-copy">Create, filter, and update machine status inside this factory's production lines.</p>
+    </div>
+    <a class="button button-secondary" href="/factories/{{ factory.id }}/machines?page=1&per_page=10">API page</a>
+  </div>
+  <form class="inline-form machine-form" action="{% if production_lines %}/factories/{{ factory.id }}/production-lines/{{ production_lines[0].id }}/machines{% else %}#{% endif %}" method="post">
+    <input name="name" placeholder="Machine name" required maxlength="120" {% if not production_lines %}disabled{% endif %}>
+    <input name="code" placeholder="Code" required maxlength="50" {% if not production_lines %}disabled{% endif %}>
+    <input name="type" placeholder="Machine type" required maxlength="80" {% if not production_lines %}disabled{% endif %}>
+    <select name="status" {% if not production_lines %}disabled{% endif %}>
+      <option value="active">Active</option>
+      <option value="maintenance">Maintenance</option>
+      <option value="inactive">Inactive</option>
+    </select>
+    <select name="production_line_selector" aria-label="Production line" onchange="this.form.action='/factories/{{ factory.id }}/production-lines/' + this.value + '/machines'" {% if not production_lines %}disabled{% endif %}>
+      {% for line in production_lines %}<option value="{{ line.id }}">{{ line.name }}</option>{% endfor %}
+    </select>
+    <button class="button" type="submit" {% if not production_lines %}disabled{% endif %}>Add Machine</button>
+  </form>
+  {% if not production_lines %}<p class="empty-state">Add an active production line before creating machines.</p>{% endif %}
+  <form class="filter-form" action="/factories/{{ factory.id }}/machines" method="get">
+    <select name="status" aria-label="Filter by status">
+      <option value="">All statuses</option>
+      <option value="active">Active</option>
+      <option value="maintenance">Maintenance</option>
+      <option value="inactive">Inactive</option>
+    </select>
+    <select name="production_line_id" aria-label="Filter by production line">
+      <option value="">All production lines</option>
+      {% for line in production_lines %}<option value="{{ line.id }}">{{ line.name }}</option>{% endfor %}
+    </select>
+    <button class="button button-secondary" type="submit">Filter via API</button>
+  </form>
+  <div class="table-card">
+    {% if machines %}
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Code</th><th>Type</th><th>Line</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for machine in machines %}
+        <tr>
+          <td>{{ machine.name }}</td>
+          <td>{{ machine.code }}</td>
+          <td>{{ machine.type }}</td>
+          <td>{{ machine.production_line.name }}</td>
+          <td><span class="status-pill status-{{ machine.status }}">{{ machine.status }}</span></td>
+          <td>{{ machine.created_at }}</td>
+          <td class="machine-actions">
+            <form action="/factories/{{ factory.id }}/production-lines/{{ machine.production_line_id }}/machines/{{ machine.id }}/status" method="post">
+              <select name="status" aria-label="Change {{ machine.name }} status">
+                <option value="active" {% if machine.status == 'active' %}selected{% endif %}>Active</option>
+                <option value="maintenance" {% if machine.status == 'maintenance' %}selected{% endif %}>Maintenance</option>
+                <option value="inactive" {% if machine.status == 'inactive' %}selected{% endif %}>Inactive</option>
+              </select>
+              <button class="link-button" type="submit">Update</button>
+            </form>
+            <form action="/factories/{{ factory.id }}/production-lines/{{ machine.production_line_id }}/machines/{{ machine.id }}/delete" method="post">
+              <button class="link-button danger-link" type="submit">Mark inactive</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="empty-state">No machines match this factory yet.</p>{% endif %}
+  </div>
+</section>
 {% endblock %}

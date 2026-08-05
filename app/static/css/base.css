@@ -502,3 +502,43 @@ a {
     flex-direction: column;
   }
 }
+
+.status-maintenance {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.machine-form {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+}
+
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filter-form select,
+.machine-actions select {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  font: inherit;
+}
+
+.machine-actions,
+.machine-actions form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 1120px) {
+  .machine-form {
+    grid-template-columns: 1fr;
+  }
+}
