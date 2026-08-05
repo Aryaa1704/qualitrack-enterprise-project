@@ -292,3 +292,75 @@ def test_production_line_crud_nullable_department_relationships_and_uniqueness()
 
     deleted_read_response = auth_client.get(f"/factories/{factory['id']}/production-lines/{line['id']}")
     assert deleted_read_response.status_code == 404
+
+
+def test_openapi_schema_includes_machine_endpoints() -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert "/factories/{factory_id}/production-lines/{line_id}/machines" in paths
+    assert "/factories/{factory_id}/machines" in paths
+    assert "/factories/{factory_id}/machines/{machine_id}" in paths
+    assert "post" in paths["/factories/{factory_id}/production-lines/{line_id}/machines"]
+    assert "get" in paths["/factories/{factory_id}/machines"]
+    assert {"get", "put", "delete"}.issubset(paths["/factories/{factory_id}/machines/{machine_id}"])
+
+
+def test_machine_crud_soft_delete_pagination_and_uniqueness() -> None:
+    auth_client = _authenticated_client()
+    factory = _create_factory(auth_client)
+    line_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines",
+        json={"name": "Line 1", "code": "M-L1"},
+    )
+    assert line_response.status_code == 201
+    line = line_response.json()
+
+    create_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines/{line['id']}/machines",
+        json={"name": "Press 1", "code": "PRS-1", "manufacturer": "Acme", "model_number": "A100"},
+    )
+    assert create_response.status_code == 201
+    machine = create_response.json()
+    assert machine["factory_id"] == factory["id"]
+    assert machine["production_line_id"] == line["id"]
+    assert machine["code"] == "PRS-1"
+
+    duplicate_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines/{line['id']}/machines",
+        json={"name": "Duplicate Press", "code": "PRS-1"},
+    )
+    assert duplicate_response.status_code == 400
+
+    read_response = auth_client.get(f"/factories/{factory['id']}/machines/{machine['id']}")
+    assert read_response.status_code == 200
+    assert read_response.json()["id"] == machine["id"]
+
+    update_response = auth_client.put(
+        f"/factories/{factory['id']}/machines/{machine['id']}",
+        json={"name": "Press 1 Updated", "status": "maintenance"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["name"] == "Press 1 Updated"
+    assert update_response.json()["status"] == "maintenance"
+
+    unique = uuid4().hex[:8]
+    for index in range(10):
+        response = auth_client.post(
+            f"/factories/{factory['id']}/production-lines/{line['id']}/machines",
+            json={"name": f"Machine {index}", "code": f"M-{unique}-{index}"},
+        )
+        assert response.status_code == 201
+
+    page_response = auth_client.get(f"/factories/{factory['id']}/machines?page=1&per_page=5")
+    assert page_response.status_code == 200
+    assert page_response.json()["pages"] >= 2
+    assert len(page_response.json()["items"]) == 5
+
+    delete_response = auth_client.delete(f"/factories/{factory['id']}/machines/{machine['id']}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["status"] == "inactive"
+
+    deleted_read_response = auth_client.get(f"/factories/{factory['id']}/machines/{machine['id']}")
+    assert deleted_read_response.status_code == 404

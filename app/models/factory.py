@@ -26,6 +26,7 @@ class Factory(Base):
 
     departments: Mapped[list["Department"]] = relationship(back_populates="factory")
     production_lines: Mapped[list["ProductionLine"]] = relationship(back_populates="factory")
+    machines: Mapped[list["Machine"]] = relationship(back_populates="factory")
 
 
 class Department(Base):
@@ -69,3 +70,28 @@ class ProductionLine(Base):
 
     factory: Mapped[Factory] = relationship(back_populates="production_lines")
     department: Mapped[Department | None] = relationship(back_populates="production_lines")
+    machines: Mapped[list["Machine"]] = relationship(back_populates="production_line")
+
+
+class Machine(Base):
+    """Machine asset assigned to a factory production line."""
+
+    __tablename__ = "machines"
+    __table_args__ = (UniqueConstraint("factory_id", "code", name="uq_machines_factory_code"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    factory_id: Mapped[int] = mapped_column(ForeignKey("factories.id"), nullable=False, index=True)
+    production_line_id: Mapped[int] = mapped_column(ForeignKey("production_lines.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    code: Mapped[str] = mapped_column(String(50), nullable=False)
+    manufacturer: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    model_number: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    factory: Mapped[Factory] = relationship(back_populates="machines")
+    production_line: Mapped[ProductionLine] = relationship(back_populates="machines")

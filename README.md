@@ -2,7 +2,7 @@
 
 QualiTrack is a Manufacturing Quality Inspection & Defect Analytics Platform.
 
-This repository contains the Phase 3 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, and factory management, departments, and production lines. It does not include role permissions, machines, products, or batches yet.
+This repository contains the Phase 4 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, and factory management, departments, production lines, and machine management. It does not include role permissions, products, or batches yet.
 
 ## For builders: what this means in simple words
 
@@ -16,6 +16,7 @@ Think of this phase like preparing an empty factory building before machines arr
 - **Authentication**: inspectors can register, log in, log out, and view a protected profile.
 - **Factory management**: authenticated users can create, review, update, and soft-delete factories.
 - **Departments and production lines**: authenticated users can manage factory-scoped departments and production lines, including optional department grouping for lines.
+- **Machine management**: authenticated users can register, update, list, and soft-delete machines assigned to production lines.
 
 ## Project structure
 
@@ -125,7 +126,13 @@ alembic upgrade head
 - `PUT /factories/{factory_id}/production-lines/{line_id}` updates a production line.
 - `DELETE /factories/{factory_id}/production-lines/{line_id}` soft-deletes a production line by marking it inactive.
 
-Factory, department, and production line pages and APIs require an authenticated user session.
+- `POST /factories/{factory_id}/production-lines/{line_id}/machines` creates a machine for a production line.
+- `GET /factories/{factory_id}/machines` returns active machines with pagination.
+- `GET /factories/{factory_id}/machines/{machine_id}` returns one active machine.
+- `PUT /factories/{factory_id}/machines/{machine_id}` updates a machine.
+- `DELETE /factories/{factory_id}/machines/{machine_id}` soft-deletes a machine by marking it inactive.
+
+Factory, department, production line, and machine pages and APIs require an authenticated user session.
 
 ## Tests
 

@@ -126,3 +126,49 @@ class ProductionLineList(BaseModel):
     per_page: int
     total: int
     pages: int
+
+
+class MachineBase(BaseModel):
+    """Shared machine fields."""
+
+    name: str = Field(min_length=1, max_length=120)
+    code: str = Field(min_length=1, max_length=50)
+    manufacturer: str | None = Field(default=None, max_length=120)
+    model_number: str | None = Field(default=None, max_length=120)
+    status: str = Field(default="active", pattern="^(active|inactive|maintenance)$")
+
+
+class MachineCreate(MachineBase):
+    """Data required to create a machine."""
+
+
+class MachineUpdate(BaseModel):
+    """Data allowed when updating a machine."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    code: str | None = Field(default=None, min_length=1, max_length=50)
+    production_line_id: int | None = None
+    manufacturer: str | None = Field(default=None, max_length=120)
+    model_number: str | None = Field(default=None, max_length=120)
+    status: str | None = Field(default=None, pattern="^(active|inactive|maintenance)$")
+
+
+class MachineRead(MachineBase):
+    """Machine details returned by the API."""
+
+    id: int
+    factory_id: int
+    production_line_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MachineList(BaseModel):
+    """Paginated machine list response."""
+
+    items: list[MachineRead]
+    page: int
+    per_page: int
+    total: int
+    pages: int
