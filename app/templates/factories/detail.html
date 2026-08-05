@@ -1,6 +1,75 @@
 {% extends "base.html" %}
 
-{% block title %}{{ factory.name }} | {{ app_name }}{% endblock %}
+{% block title %}{{ factory.name }} | {{ app_name }}
+
+<section id="machines" class="hierarchy-section" aria-labelledby="machines-title">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Machines</p>
+      <h2 id="machines-title">Production line machines</h2>
+      <p class="section-copy">Machines are the equipment working inside a production line.</p>
+    </div>
+  </div>
+  {% if production_lines %}
+  <form class="inline-form machine-form" action="/factories/{{ factory.id }}/machines" method="post">
+    <select name="production_line_id" required>
+      {% for line in production_lines %}<option value="{{ line.id }}">{{ line.name }}</option>{% endfor %}
+    </select>
+    <input name="name" placeholder="Machine name" required maxlength="120">
+    <input name="code" placeholder="Code" required maxlength="50">
+    <input name="type" placeholder="Type, like CNC" required maxlength="80">
+    <select name="status">
+      <option value="active">Active</option>
+      <option value="maintenance">Maintenance</option>
+      <option value="inactive">Inactive</option>
+    </select>
+    <button class="button" type="submit">Add Machine</button>
+  </form>
+  <form class="inline-form filter-form" action="/factories/{{ factory.id }}/production-lines/{{ production_lines[0].id }}/machines" method="get">
+    <select name="status_filter">
+      <option value="">All statuses</option>
+      <option value="active">Active</option>
+      <option value="maintenance">Maintenance</option>
+      <option value="inactive">Inactive</option>
+    </select>
+    <select name="production_line_id">
+      {% for line in production_lines %}<option value="{{ line.id }}">{{ line.name }}</option>{% endfor %}
+    </select>
+    <input name="factory_filter_id" value="{{ factory.id }}" aria-label="Factory id filter">
+    <button class="button button-secondary" type="submit">Filter API</button>
+  </form>
+  {% endif %}
+  <div class="table-card">
+    {% if machines %}
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Code</th><th>Type</th><th>Line</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for machine in machines %}
+        <tr>
+          <td>{{ machine.name }}</td>
+          <td>{{ machine.code }}</td>
+          <td>{{ machine.type }}</td>
+          <td>{{ machine.production_line.name }}</td>
+          <td><span class="status-pill status-{{ machine.status }}">{{ machine.status }}</span></td>
+          <td>{{ machine.created_at }}</td>
+          <td>
+            <form action="/factories/{{ factory.id }}/production-lines/{{ machine.production_line_id }}/machines/{{ machine.id }}/status" method="post">
+              <select name="status">
+                <option value="active" {% if machine.status == 'active' %}selected{% endif %}>Active</option>
+                <option value="maintenance" {% if machine.status == 'maintenance' %}selected{% endif %}>Maintenance</option>
+                <option value="inactive" {% if machine.status == 'inactive' %}selected{% endif %}>Inactive</option>
+              </select>
+              <button class="link-button" type="submit">Save status</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="empty-state">No machines yet. Add a production line first, then create its machines.</p>{% endif %}
+  </div>
+</section>
+{% endblock %}
 
 {% block content %}
 <section class="page-header" aria-labelledby="factory-title">
@@ -105,6 +174,75 @@
       </tbody>
     </table>
     {% else %}<p class="empty-state">No active production lines yet.</p>{% endif %}
+  </div>
+</section>
+
+
+<section id="machines" class="hierarchy-section" aria-labelledby="machines-title">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Machines</p>
+      <h2 id="machines-title">Production line machines</h2>
+      <p class="section-copy">Machines are the equipment working inside a production line.</p>
+    </div>
+  </div>
+  {% if production_lines %}
+  <form class="inline-form machine-form" action="/factories/{{ factory.id }}/machines" method="post">
+    <select name="production_line_id" required>
+      {% for line in production_lines %}<option value="{{ line.id }}">{{ line.name }}</option>{% endfor %}
+    </select>
+    <input name="name" placeholder="Machine name" required maxlength="120">
+    <input name="code" placeholder="Code" required maxlength="50">
+    <input name="type" placeholder="Type, like CNC" required maxlength="80">
+    <select name="status">
+      <option value="active">Active</option>
+      <option value="maintenance">Maintenance</option>
+      <option value="inactive">Inactive</option>
+    </select>
+    <button class="button" type="submit">Add Machine</button>
+  </form>
+  <form class="inline-form filter-form" action="/factories/{{ factory.id }}/production-lines/{{ production_lines[0].id }}/machines" method="get">
+    <select name="status_filter">
+      <option value="">All statuses</option>
+      <option value="active">Active</option>
+      <option value="maintenance">Maintenance</option>
+      <option value="inactive">Inactive</option>
+    </select>
+    <select name="production_line_id">
+      {% for line in production_lines %}<option value="{{ line.id }}">{{ line.name }}</option>{% endfor %}
+    </select>
+    <input name="factory_filter_id" value="{{ factory.id }}" aria-label="Factory id filter">
+    <button class="button button-secondary" type="submit">Filter API</button>
+  </form>
+  {% endif %}
+  <div class="table-card">
+    {% if machines %}
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Code</th><th>Type</th><th>Line</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for machine in machines %}
+        <tr>
+          <td>{{ machine.name }}</td>
+          <td>{{ machine.code }}</td>
+          <td>{{ machine.type }}</td>
+          <td>{{ machine.production_line.name }}</td>
+          <td><span class="status-pill status-{{ machine.status }}">{{ machine.status }}</span></td>
+          <td>{{ machine.created_at }}</td>
+          <td>
+            <form action="/factories/{{ factory.id }}/production-lines/{{ machine.production_line_id }}/machines/{{ machine.id }}/status" method="post">
+              <select name="status">
+                <option value="active" {% if machine.status == 'active' %}selected{% endif %}>Active</option>
+                <option value="maintenance" {% if machine.status == 'maintenance' %}selected{% endif %}>Maintenance</option>
+                <option value="inactive" {% if machine.status == 'inactive' %}selected{% endif %}>Inactive</option>
+              </select>
+              <button class="link-button" type="submit">Save status</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="empty-state">No machines yet. Add a production line first, then create its machines.</p>{% endif %}
   </div>
 </section>
 {% endblock %}

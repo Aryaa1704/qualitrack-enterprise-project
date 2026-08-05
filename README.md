@@ -2,7 +2,7 @@
 
 QualiTrack is a Manufacturing Quality Inspection & Defect Analytics Platform.
 
-This repository contains the Phase 3 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, and factory management, departments, and production lines. It does not include role permissions, machines, products, or batches yet.
+This repository contains the Phase 4 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, and factory management, departments, production lines, and machines. It does not include role permissions, products, or batches yet.
 
 ## For builders: what this means in simple words
 
@@ -16,6 +16,7 @@ Think of this phase like preparing an empty factory building before machines arr
 - **Authentication**: inspectors can register, log in, log out, and view a protected profile.
 - **Factory management**: authenticated users can create, review, update, and soft-delete factories.
 - **Departments and production lines**: authenticated users can manage factory-scoped departments and production lines, including optional department grouping for lines.
+- **Machines**: authenticated users can manage equipment under production lines, change machine status, and filter machines by status, production line, or factory.
 
 ## Project structure
 
@@ -89,6 +90,7 @@ Then open:
 - Login: <http://127.0.0.1:8000/auth/login>
 - Profile: <http://127.0.0.1:8000/auth/profile>
 - Factories: <http://127.0.0.1:8000/factories>
+- Machines: open a factory detail page, then use the Machines section under its production lines.
 
 
 ## Authentication endpoints
@@ -125,7 +127,16 @@ alembic upgrade head
 - `PUT /factories/{factory_id}/production-lines/{line_id}` updates a production line.
 - `DELETE /factories/{factory_id}/production-lines/{line_id}` soft-deletes a production line by marking it inactive.
 
-Factory, department, and production line pages and APIs require an authenticated user session.
+## Machine endpoints
+
+- `POST /factories/{factory_id}/production-lines/{line_id}/machines` creates a machine under a production line.
+- `GET /factories/{factory_id}/production-lines/{line_id}/machines` returns machines and supports `status`, `status_filter`, `production_line_id`, and `factory_filter_id` query filters.
+- `GET /factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}` returns one machine.
+- `PUT /factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}` updates a machine.
+- `PATCH /factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}/status` changes only the machine status.
+- `DELETE /factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}` soft-deletes a machine by marking it inactive.
+
+Factory, department, production line, and machine pages and APIs require an authenticated user session.
 
 ## Tests
 

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.database.session import get_db
-from app.models.factory import Department, Factory, ProductionLine
+from app.models.factory import Department, Factory, Machine, ProductionLine
 from app.models.user import User
 from app.routers.auth import get_current_user, get_optional_current_user
 from app.schemas.factory import (
@@ -24,6 +24,11 @@ from app.schemas.factory import (
     FactoryList,
     FactoryRead,
     FactoryUpdate,
+    MachineCreate,
+    MachineList,
+    MachineRead,
+    MachineStatusUpdate,
+    MachineUpdate,
     ProductionLineCreate,
     ProductionLineList,
     ProductionLineRead,
@@ -44,8 +49,9 @@ def _wants_html(request: Request) -> bool:
 def _normalize_status(value: str | None, entity: str = "factory") -> str:
     """Normalize status and reject unsupported values."""
 
+    allowed_statuses = {"active", "maintenance", "inactive"} if entity == "machine" else {"active", "inactive"}
     status_value = (value or "active").strip().lower()
-    if status_value not in {"active", "inactive"}:
+    if status_value not in allowed_statuses:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid {entity} status")
     return status_value
 
@@ -180,6 +186,24 @@ def _get_line_or_404(db: Session, factory_id: int, line_id: int) -> ProductionLi
     return production_line
 
 
+def _ensure_machine_code_unique(db: Session, line_id: int, code: str, machine_id: int | None = None) -> None:
+    """Ensure a machine code is unique within a production line."""
+
+    query = select(Machine).where(Machine.production_line_id == line_id, Machine.code == code)
+    if machine_id is not None:
+        query = query.where(Machine.id != machine_id)
+    if db.scalar(query) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Machine code already exists")
+
+
+def _get_machine_or_404(db: Session, line_id: int, machine_id: int) -> Machine:
+    """Return a machine under a production line or raise 404."""
+
+    machine = db.scalar(select(Machine).where(Machine.id == machine_id, Machine.production_line_id == line_id))
+    if machine is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Machine not found")
+    return machine
+
 def _ensure_department_belongs_to_factory(db: Session, factory_id: int, department_id: int | None) -> None:
     """Validate an optional department belongs to the target factory."""
 
@@ -308,6 +332,17 @@ def get_factory(
                 "factory": factory,
                 "departments": departments,
                 "production_lines": production_lines,
+                "machines": list(
+                    db.scalars(
+                        select(Machine)
+                        .join(ProductionLine)
+                        .where(ProductionLine.factory_id == factory.id)
+                        .order_by(Machine.id)
+                        .limit(25)
+                    ).all()
+                ),
+                "machine_status_filter": "",
+                "machine_line_filter": "",
             },
         )
     return factory
@@ -648,3 +683,169 @@ def delete_production_line_from_form(
     production_line.status = "inactive"
     db.commit()
     return RedirectResponse(url=f"/factories/{factory_id}#production-lines", status_code=status.HTTP_303_SEE_OTHER)
+
+
+
+@router.post("/{factory_id}/machines", include_in_schema=False)
+async def create_machine_from_factory_form(
+    factory_id: int,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+) -> RedirectResponse:
+    """Create a machine from the factory detail page."""
+
+    current_user = get_optional_current_user(request, db)
+    if current_user is None:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    payload = await _hierarchy_payload(request, {"production_line_id", "name", "code", "type"}, "machine")
+    line_id = int(payload.pop("production_line_id"))
+    _get_factory_or_404(db, factory_id)
+    _get_line_or_404(db, factory_id, line_id)
+    machine_data = MachineCreate(**payload)
+    _ensure_machine_code_unique(db, line_id, machine_data.code)
+    machine = Machine(production_line_id=line_id, **machine_data.model_dump())
+    db.add(machine)
+    db.commit()
+    return RedirectResponse(url=f"/factories/{factory_id}#machines", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/{factory_id}/production-lines/{line_id}/machines", response_model=MachineRead, status_code=status.HTTP_201_CREATED)
+async def create_machine(
+    factory_id: int,
+    line_id: int,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Machine | RedirectResponse:
+    """Create a machine under a production line."""
+
+    _get_factory_or_404(db, factory_id)
+    _get_line_or_404(db, factory_id, line_id)
+    payload = await _hierarchy_payload(request, {"name", "code", "type"}, "machine")
+    machine_data = MachineCreate(**payload)
+    _ensure_machine_code_unique(db, line_id, machine_data.code)
+    machine = Machine(production_line_id=line_id, **machine_data.model_dump())
+    db.add(machine)
+    db.commit()
+    db.refresh(machine)
+    if _wants_html(request):
+        return RedirectResponse(url=f"/factories/{factory_id}#machines", status_code=status.HTTP_303_SEE_OTHER)
+    return machine
+
+
+@router.get("/{factory_id}/production-lines/{line_id}/machines", response_model=MachineList)
+def list_machines(
+    factory_id: int,
+    line_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    status: str | None = None,
+    status_filter: str | None = None,
+    production_line_id: int | None = None,
+    factory_filter_id: int | None = None,
+    page: int = 1,
+    per_page: int = 10,
+) -> MachineList:
+    """List machines with status, production line, and factory filters."""
+
+    _get_factory_or_404(db, factory_id)
+    _get_line_or_404(db, factory_id, line_id)
+    page, per_page = _pagination(page, per_page)
+    query = select(Machine).join(ProductionLine).where(ProductionLine.factory_id == factory_id)
+    if production_line_id is not None:
+        query = query.where(Machine.production_line_id == production_line_id)
+    else:
+        query = query.where(Machine.production_line_id == line_id)
+    if factory_filter_id is not None:
+        query = query.where(ProductionLine.factory_id == factory_filter_id)
+    requested_status = status_filter or status
+    if requested_status:
+        query = query.where(Machine.status == _normalize_status(requested_status, "machine"))
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    pages = max(ceil(total / per_page), 1)
+    items = list(db.scalars(query.order_by(Machine.id).offset((page - 1) * per_page).limit(per_page)).all())
+    return MachineList(items=items, page=page, per_page=per_page, total=total, pages=pages)
+
+
+@router.get("/{factory_id}/production-lines/{line_id}/machines/{machine_id}", response_model=MachineRead)
+def get_machine(
+    factory_id: int,
+    line_id: int,
+    machine_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Machine:
+    """Return one machine under a production line."""
+
+    _get_factory_or_404(db, factory_id)
+    _get_line_or_404(db, factory_id, line_id)
+    return _get_machine_or_404(db, line_id, machine_id)
+
+
+@router.put("/{factory_id}/production-lines/{line_id}/machines/{machine_id}", response_model=MachineRead)
+async def update_machine(
+    factory_id: int,
+    line_id: int,
+    machine_id: int,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Machine:
+    """Update a machine."""
+
+    _get_factory_or_404(db, factory_id)
+    _get_line_or_404(db, factory_id, line_id)
+    machine = _get_machine_or_404(db, line_id, machine_id)
+    payload = await _hierarchy_payload(request, {"name", "code", "type"}, "machine", partial=True)
+    updates = MachineUpdate(**payload).model_dump(exclude_unset=True)
+    if "code" in updates:
+        _ensure_machine_code_unique(db, line_id, updates["code"], machine_id=machine.id)
+    for field, value in updates.items():
+        setattr(machine, field, value)
+    db.commit()
+    db.refresh(machine)
+    return machine
+
+
+@router.patch("/{factory_id}/production-lines/{line_id}/machines/{machine_id}/status", response_model=MachineRead)
+@router.post("/{factory_id}/production-lines/{line_id}/machines/{machine_id}/status", response_model=MachineRead, include_in_schema=False)
+async def change_machine_status(
+    factory_id: int,
+    line_id: int,
+    machine_id: int,
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Machine | RedirectResponse:
+    """Change only a machine status."""
+
+    _get_factory_or_404(db, factory_id)
+    _get_line_or_404(db, factory_id, line_id)
+    machine = _get_machine_or_404(db, line_id, machine_id)
+    payload = await _hierarchy_payload(request, {"status"}, "machine")
+    status_data = MachineStatusUpdate(**payload)
+    machine.status = status_data.status
+    db.commit()
+    db.refresh(machine)
+    if _wants_html(request):
+        return RedirectResponse(url=f"/factories/{factory_id}#machines", status_code=status.HTTP_303_SEE_OTHER)
+    return machine
+
+
+@router.delete("/{factory_id}/production-lines/{line_id}/machines/{machine_id}", response_model=MachineRead)
+def delete_machine(
+    factory_id: int,
+    line_id: int,
+    machine_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Machine:
+    """Soft-delete a machine by marking it inactive."""
+
+    _get_factory_or_404(db, factory_id)
+    _get_line_or_404(db, factory_id, line_id)
+    machine = _get_machine_or_404(db, line_id, machine_id)
+    machine.status = "inactive"
+    db.commit()
+    db.refresh(machine)
+    return machine
