@@ -294,235 +294,111 @@ def test_production_line_crud_nullable_department_relationships_and_uniqueness()
     assert deleted_read_response.status_code == 404
 
 
-# Machine CRUD Tests
-def test_machine_crud_operations(client, db):
-    """Test machine create, read, update operations."""
-    # Create factory, dept, line first
-    factory_res = client.post("/factories", json={"name": "Test", "code": "TST"})
-    factory_id = factory_res.json()["id"]
-    
-    line_res = client.post(f"/factories/{factory_id}/production-lines",
-        json={"name": "Line 1", "code": "L1"})
-    line_id = line_res.json()["id"]
-    
-    # Create machine
-    machine_data = {"name": "CNC-1", "code": "CNC001", "type": "CNC", "status": "active"}
-    res = client.post(f"/factories/{factory_id}/production-lines/{line_id}/machines",
-        json=machine_data)
-    assert res.status_code == 201
-    machine = res.json()
-    assert machine["name"] == "CNC-1"
+
+def test_openapi_schema_includes_machine_endpoints() -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    collection = "/factories/{factory_id}/production-lines/{line_id}/machines"
+    detail = "/factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}"
+    status_path = "/factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}/status"
+    assert collection in paths
+    assert detail in paths
+    assert status_path in paths
+    assert {"post", "get"}.issubset(paths[collection])
+    assert {"get", "put", "delete"}.issubset(paths[detail])
+    assert "patch" in paths[status_path]
+
+
+def _create_factory_line(auth_client: TestClient) -> tuple[dict, dict]:
+    unique = uuid4().hex[:8]
+    factory_response = auth_client.post(
+        "/factories",
+        json={"name": f"Machine Factory {unique}", "code": f"MF-{unique}", "location": "Toledo, OH"},
+    )
+    assert factory_response.status_code == 201
+    factory = factory_response.json()
+    line_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines",
+        json={"name": f"Machine Line {unique}", "code": f"ML-{unique}"},
+    )
+    assert line_response.status_code == 201
+    return factory, line_response.json()
+
+
+def test_machine_crud_status_change_and_uniqueness() -> None:
+    auth_client = _authenticated_client()
+    factory, line = _create_factory_line(auth_client)
+    base_url = f"/factories/{factory['id']}/production-lines/{line['id']}/machines"
+
+    create_response = auth_client.post(
+        base_url,
+        json={"name": "CNC-1", "code": "CNC001", "type": "CNC", "status": "active"},
+    )
+    assert create_response.status_code == 201
+    machine = create_response.json()
+    assert machine["production_line_id"] == line["id"]
+    assert machine["factory_id"] == factory["id"]
     assert machine["status"] == "active"
-    
-    # Read machine
-    res = client.get(f"/factories/{factory_id}/production-lines/{line_id}/machines/{machine['id']}")
-    assert res.status_code == 200
-    assert res.json()["code"] == "CNC001"
+
+    duplicate_response = auth_client.post(
+        base_url,
+        json={"name": "CNC Duplicate", "code": "CNC001", "type": "CNC", "status": "active"},
+    )
+    assert duplicate_response.status_code == 409
+
+    read_response = auth_client.get(f"{base_url}/{machine['id']}")
+    assert read_response.status_code == 200
+    assert read_response.json()["code"] == "CNC001"
+
+    update_response = auth_client.put(
+        f"{base_url}/{machine['id']}",
+        json={"name": "CNC-1 Updated", "type": "Milling"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["name"] == "CNC-1 Updated"
+    assert update_response.json()["type"] == "Milling"
+
+    status_response = auth_client.patch(f"{base_url}/{machine['id']}/status", json={"status": "maintenance"})
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "maintenance"
+
+    delete_response = auth_client.delete(f"{base_url}/{machine['id']}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["status"] == "inactive"
 
 
-def test_machine_uniqueness_constraint(client, db):
-    """Test machine code uniqueness per production line."""
-    factory_res = client.post("/factories", json={"name": "Test2", "code": "TS2"})
-    factory_id = factory_res.json()["id"]
-    
-    line_res = client.post(f"/factories/{factory_id}/production-lines",
-        json={"name": "Line2", "code": "L2"})
-    line_id = line_res.json()["id"]
-    
-    # Create first machine
-    machine_data = {"name": "Machine1", "code": "M001", "type": "Assembly", "status": "active"}
-    res1 = client.post(f"/factories/{factory_id}/production-lines/{line_id}/machines",
-        json=machine_data)
-    assert res1.status_code == 201
-    
-    # Try duplicate code
-    res2 = client.post(f"/factories/{factory_id}/production-lines/{line_id}/machines",
-        json=machine_data)
-    assert res2.status_code == 409  # Conflict - duplicate code
-
-
-def test_machine_status_soft_delete(client, db):
-    """Test machine soft delete via status change."""
-    factory_res = client.post("/factories", json={"name": "Test3", "code": "TS3"})
-    factory_id = factory_res.json()["id"]
-    
-    line_res = client.post(f"/factories/{factory_id}/production-lines",
-        json={"name": "Line3", "code": "L3"})
-    line_id = line_res.json()["id"]
-    
-    machine_res = client.post(f"/factories/{factory_id}/production-lines/{line_id}/machines",
-        json={"name": "TestMachine", "code": "TM001", "type": "Test", "status": "active"})
-    machine_id = machine_res.json()["id"]
-    
-    # Change status to inactive
-    patch_res = client.patch(f"/factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}",
-        json={"status": "inactive"})
-    assert patch_res.status_code == 200
-    assert patch_res.json()["status"] == "inactive"
-
-
-def test_machine_relationships(client, db):
-    """Test machine relationships with production line."""
-    factory_res = client.post("/factories", json={"name": "RelTest", "code": "RT"})
-    factory_id = factory_res.json()["id"]
-    
-    line_res = client.post(f"/factories/{factory_id}/production-lines",
-        json={"name": "RelLine", "code": "RL"})
-    line_id = line_res.json()["id"]
-    
-    machine_res = client.post(f"/factories/{factory_id}/production-lines/{line_id}/machines",
-        json={"name": "RelMachine", "code": "RM001", "type": "Drill", "status": "active"})
-    
-    # Verify relationship
-    machines = client.get(f"/factories/{factory_id}/production-lines/{line_id}/machines").json()
-    assert len(machines["items"]) == 1
-    assert machines["items"][0]["production_line_id"] == line_id
-
-
-def test_machine_crud_operations() -> None:
-    """Test machine CRUD operations with correct pattern."""
+def test_machine_filters_by_status_line_and_factory() -> None:
     auth_client = _authenticated_client()
-    
-    # Create factory
-    factory_res = auth_client.post(
-        "/factories",
-        json={"name": "Machine Test Factory", "code": "MTF"}
+    factory, first_line = _create_factory_line(auth_client)
+    second_line_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines",
+        json={"name": "Second Machine Line", "code": f"SML-{uuid4().hex[:8]}"},
     )
-    assert factory_res.status_code == 201
-    factory_id = factory_res.json()["id"]
-    
-    # Create production line
-    line_res = auth_client.post(
-        f"/factories/{factory_id}/production-lines",
-        json={"name": "Test Line", "code": "TL"}
-    )
-    assert line_res.status_code == 201
-    line_id = line_res.json()["id"]
-    
-    # Create machine
-    machine_res = auth_client.post(
-        f"/factories/{factory_id}/production-lines/{line_id}/machines",
-        json={"name": "CNC-1", "code": "CNC001", "type": "CNC", "status": "active"}
-    )
-    assert machine_res.status_code == 201
-    machine = machine_res.json()
-    assert machine["name"] == "CNC-1"
-    assert machine["code"] == "CNC001"
-    assert machine["status"] == "active"
-    machine_id = machine["id"]
-    
-    # Read machine
-    get_res = auth_client.get(
-        f"/factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}"
-    )
-    assert get_res.status_code == 200
-    assert get_res.json()["code"] == "CNC001"
-    
-    # Update machine status
-    update_res = auth_client.patch(
-        f"/factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}",
-        json={"status": "inactive"}
-    )
-    assert update_res.status_code == 200
-    assert update_res.json()["status"] == "inactive"
+    assert second_line_response.status_code == 201
+    second_line = second_line_response.json()
 
+    first_url = f"/factories/{factory['id']}/production-lines/{first_line['id']}/machines"
+    second_url = f"/factories/{factory['id']}/production-lines/{second_line['id']}/machines"
+    active_response = auth_client.post(first_url, json={"name": "Robot Arm", "code": "RA1", "type": "Robot"})
+    maintenance_response = auth_client.post(
+        second_url,
+        json={"name": "Welder", "code": "W1", "type": "Welder", "status": "maintenance"},
+    )
+    assert active_response.status_code == 201
+    assert maintenance_response.status_code == 201
 
-def test_machine_uniqueness_constraint() -> None:
-    """Test machine code uniqueness per production line."""
-    auth_client = _authenticated_client()
-    
-    # Create factory and production line
-    factory_res = auth_client.post(
-        "/factories",
-        json={"name": "Unique Test Factory", "code": "UTF"}
-    )
-    factory_id = factory_res.json()["id"]
-    
-    line_res = auth_client.post(
-        f"/factories/{factory_id}/production-lines",
-        json={"name": "Unique Test Line", "code": "UTL"}
-    )
-    line_id = line_res.json()["id"]
-    
-    # Create first machine
-    machine_data = {"name": "Machine-1", "code": "M001", "type": "Assembly", "status": "active"}
-    res1 = auth_client.post(
-        f"/factories/{factory_id}/production-lines/{line_id}/machines",
-        json=machine_data
-    )
-    assert res1.status_code == 201
-    
-    # Try create duplicate code
-    res2 = auth_client.post(
-        f"/factories/{factory_id}/production-lines/{line_id}/machines",
-        json=machine_data
-    )
-    assert res2.status_code == 409  # Conflict
+    status_filter = auth_client.get(f"{first_url}?status=maintenance&production_line_id={second_line['id']}")
+    assert status_filter.status_code == 200
+    assert status_filter.json()["total"] == 1
+    assert status_filter.json()["items"][0]["status"] == "maintenance"
 
+    line_filter = auth_client.get(f"{first_url}?production_line_id={first_line['id']}")
+    assert line_filter.status_code == 200
+    assert line_filter.json()["total"] == 1
+    assert line_filter.json()["items"][0]["production_line_id"] == first_line["id"]
 
-def test_machine_status_soft_delete() -> None:
-    """Test machine soft delete via status change."""
-    auth_client = _authenticated_client()
-    
-    # Create factory, line, machine
-    factory_res = auth_client.post(
-        "/factories",
-        json={"name": "Soft Delete Factory", "code": "SDF"}
-    )
-    factory_id = factory_res.json()["id"]
-    
-    line_res = auth_client.post(
-        f"/factories/{factory_id}/production-lines",
-        json={"name": "Soft Delete Line", "code": "SDL"}
-    )
-    line_id = line_res.json()["id"]
-    
-    machine_res = auth_client.post(
-        f"/factories/{factory_id}/production-lines/{line_id}/machines",
-        json={"name": "Delete Test", "code": "DT001", "type": "Test", "status": "active"}
-    )
-    assert machine_res.status_code == 201
-    machine_id = machine_res.json()["id"]
-    
-    # Soft delete by changing status
-    delete_res = auth_client.patch(
-        f"/factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}",
-        json={"status": "inactive"}
-    )
-    assert delete_res.status_code == 200
-    assert delete_res.json()["status"] == "inactive"
-
-
-def test_machine_relationships() -> None:
-    """Test machine relationships with production line."""
-    auth_client = _authenticated_client()
-    
-    # Create factory, department, line, machine
-    factory_res = auth_client.post(
-        "/factories",
-        json={"name": "Relationship Factory", "code": "RF"}
-    )
-    factory_id = factory_res.json()["id"]
-    
-    line_res = auth_client.post(
-        f"/factories/{factory_id}/production-lines",
-        json={"name": "Relationship Line", "code": "RL"}
-    )
-    line_id = line_res.json()["id"]
-    
-    machine_res = auth_client.post(
-        f"/factories/{factory_id}/production-lines/{line_id}/machines",
-        json={"name": "Relationship Machine", "code": "RM001", "type": "Drill", "status": "active"}
-    )
-    assert machine_res.status_code == 201
-    machine = machine_res.json()
-    assert machine["production_line_id"] == line_id
-    
-    # Verify machine in production line list
-    machines_res = auth_client.get(
-        f"/factories/{factory_id}/production-lines/{line_id}/machines"
-    )
-    assert machines_res.status_code == 200
-    machines = machines_res.json()
-    assert len(machines["items"]) >= 1
-    assert any(m["id"] == machine["id"] for m in machines["items"])
+    factory_filter = auth_client.get(f"{first_url}?factory_filter_id={factory['id']}")
+    assert factory_filter.status_code == 200
+    assert factory_filter.json()["total"] == 1

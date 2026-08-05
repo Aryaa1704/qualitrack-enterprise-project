@@ -379,6 +379,11 @@ a {
   color: #991b1b;
 }
 
+.status-maintenance {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .empty-state {
   margin: 0;
   padding: 32px;
@@ -501,4 +506,12 @@ a {
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+.machine-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+}
+
+.filter-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
 }

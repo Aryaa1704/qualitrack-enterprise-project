@@ -69,3 +69,31 @@ class ProductionLine(Base):
 
     factory: Mapped[Factory] = relationship(back_populates="production_lines")
     department: Mapped[Department | None] = relationship(back_populates="production_lines")
+    machines: Mapped[list["Machine"]] = relationship(back_populates="production_line")
+
+
+class Machine(Base):
+    """Production-line-scoped equipment used for manufacturing work."""
+
+    __tablename__ = "machines"
+    __table_args__ = (UniqueConstraint("production_line_id", "code", name="uq_machines_line_code"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    production_line_id: Mapped[int] = mapped_column(ForeignKey("production_lines.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    code: Mapped[str] = mapped_column(String(50), nullable=False)
+    type: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    production_line: Mapped[ProductionLine] = relationship(back_populates="machines")
+
+    @property
+    def factory_id(self) -> int:
+        """Return the parent factory id through the production line."""
+
+        return self.production_line.factory_id
