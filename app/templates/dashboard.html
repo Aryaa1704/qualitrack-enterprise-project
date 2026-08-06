@@ -37,26 +37,18 @@
 </section>
 
 <section class="recent-activity" aria-labelledby="recent-activity-title">
-  <div class="section-heading"><h2 id="recent-activity-title">Recent Activity</h2><a class="button button-secondary" href="/inspections">View all inspections</a></div>
-  {% if recent_inspections %}
-    <div class="table-card">
-      <table class="data-table">
-        <thead><tr><th>Date</th><th>Batch</th><th>Inspector</th><th>Status</th><th>Score</th></tr></thead>
-        <tbody>
-          {% for inspection in recent_inspections %}
-            <tr>
-              <td>{{ inspection.inspection_date }}</td>
-              <td><a href="/batches/{{ inspection.batch_id }}">{{ inspection.batch.batch_number }}</a></td>
-              <td>{{ inspection.inspector.username }}</td>
-              <td><span class="status-pill status-{{ inspection.overall_status|lower }}">{{ inspection.overall_status }}</span></td>
-              <td>{{ inspection.inspection_score }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <div class="section-heading"><h2 id="recent-activity-title">Recent Activity</h2><a class="button button-secondary" href="/activity-logs">View all activity</a></div>
+  {% if recent_activity %}
+    <div class="activity-feed">
+      {% for item in recent_activity %}
+        <article class="activity-item">
+          <div><strong>{{ item.description }}</strong><p>{{ item.user.username }} · {{ item.action.replace('_', ' ').title() }} · {{ item.created_at }}</p></div>
+          <span class="status-pill">{{ item.entity_type }}{% if item.entity_id %} #{{ item.entity_id }}{% endif %}</span>
+        </article>
+      {% endfor %}
     </div>
   {% else %}
-    <p class="empty-state">No inspections have been recorded yet.</p>
+    <p class="empty-state">No activity has been recorded yet.</p>
   {% endif %}
 </section>
 

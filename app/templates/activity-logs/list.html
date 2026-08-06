@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Activity Logs | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page-header" aria-labelledby="activity-title">
+  <div>
+    <p class="eyebrow">Audit Trail</p>
+    <h1 id="activity-title">Activity Logs</h1>
+    <p class="section-copy">Review login, inspection, defect, and report export activity across QualiTrack.</p>
+  </div>
+</section>
+
+<form class="filter-form" action="/activity-logs" method="get">
+  <label>User
+    <select name="user_id">
+      <option value="">All users</option>
+      {% for user in users %}<option value="{{ user.id }}" {% if user_id == user.id %}selected{% endif %}>{{ user.username }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Action
+    <select name="action">
+      <option value="">All actions</option>
+      {% for choice in action_choices %}<option value="{{ choice }}" {% if action == choice %}selected{% endif %}>{{ choice.replace('_', ' ').title() }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Start date <input type="date" name="start_date" value="{{ start_date }}" /></label>
+  <label>End date <input type="date" name="end_date" value="{{ end_date }}" /></label>
+  <button class="button" type="submit">Apply filters</button>
+  <a class="button button-secondary" href="/activity-logs">Reset</a>
+</form>
+
+{% if items %}
+  <div class="table-card">
+    <table class="data-table">
+      <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Entity</th><th>Description</th></tr></thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td>{{ item.created_at }}</td>
+            <td>{{ item.user.username }}</td>
+            <td><span class="status-pill">{{ item.action.replace('_', ' ').title() }}</span></td>
+            <td>{{ item.entity_type }}{% if item.entity_id %} #{{ item.entity_id }}{% endif %}</td>
+            <td>{{ item.description }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <nav class="pagination" aria-label="Activity log pagination">
+    {% if page > 1 %}<a class="button button-secondary" href="/activity-logs?page={{ page - 1 }}&per_page={{ per_page }}&user_id={{ user_id }}&action={{ action }}&start_date={{ start_date }}&end_date={{ end_date }}">Previous</a>{% endif %}
+    <span>Page {{ page }} of {{ pages }} · {{ total }} events</span>
+    {% if page < pages %}<a class="button button-secondary" href="/activity-logs?page={{ page + 1 }}&per_page={{ per_page }}&user_id={{ user_id }}&action={{ action }}&start_date={{ start_date }}&end_date={{ end_date }}">Next</a>{% endif %}
+  </nav>
+{% else %}
+  <p class="empty-state">No activity log entries match the current filters.</p>
+{% endif %}
+{% endblock %}

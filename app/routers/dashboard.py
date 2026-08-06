@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.database.session import get_db
+from app.models.activity import ActivityLog
 from app.models.factory import Batch, Defect, Inspection
 from app.models.user import User
 from app.routers.auth import ADMIN, QUALITY_MANAGER, get_current_user, get_optional_current_user, redirect_if_forbidden, require_role
@@ -33,10 +34,10 @@ def _last_30_days() -> list[str]:
     return [(today - timedelta(days=offset)).isoformat() for offset in range(29, -1, -1)]
 
 
-def _recent_inspections(db: Session) -> list[Inspection]:
-    """Return a small recent inspection feed until the activity log phase is built."""
+def _recent_activity(db: Session) -> list[ActivityLog]:
+    """Return a small recent activity feed for the dashboard."""
 
-    return list(db.scalars(select(Inspection).order_by(Inspection.inspection_date.desc(), Inspection.id.desc()).limit(8)).all())
+    return list(db.scalars(select(ActivityLog).order_by(ActivityLog.created_at.desc(), ActivityLog.id.desc()).limit(8)).all())
 
 
 @router.get("", response_class=HTMLResponse, include_in_schema=False)
@@ -56,7 +57,7 @@ def dashboard_page(request: Request, db: Annotated[Session, Depends(get_db)]) ->
             "app_name": settings.app_name,
             "app_description": settings.app_description,
             "current_user": current_user,
-            "recent_inspections": _recent_inspections(db),
+            "recent_activity": _recent_activity(db),
         },
     )
 

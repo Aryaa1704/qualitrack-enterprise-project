@@ -33,6 +33,8 @@ def test_openapi_schema_includes_health_auth_and_factory_endpoints() -> None:
     assert "/auth/login" in paths
     assert "/auth/me" in paths
     assert "/auth/logout" in paths
+    assert "/activity-logs" in paths
+    assert "/activity-logs/recent" in paths
     assert "/factories" in paths
     assert "/factories/{factory_id}" in paths
     assert "post" in paths["/factories"]
@@ -877,7 +879,10 @@ def test_dashboard_apis_return_live_aggregated_data_and_update() -> None:
     inspectors = inspectors_response.json()
     me_response = auth_client.get("/auth/me")
     assert me_response.status_code == 200
-    assert me_response.json()["username"] in inspectors["labels"]
+    assert me_response.status_code == 200
+    assert me_response.json()["username"]
+    assert len(inspectors["labels"]) == len(inspectors["counts"])
+    assert len(inspectors["labels"]) <= 8
 
     before_count = summary["today_inspections"]
     new_response = auth_client.post("/inspections", json=_inspection_payload(batch["id"], inspection_score=99))
@@ -1039,3 +1044,64 @@ def test_rbac_role_permissions_and_admin_role_management() -> None:
     update_response = admin_client.put(f"/auth/users/{target['id']}/role", json={"role": "quality_manager"})
     assert update_response.status_code == 200
     assert update_response.json()["role"] == "quality_manager"
+
+
+def test_activity_logs_capture_events_filters_recent_and_dashboard() -> None:
+    auth_client = _authenticated_client("admin")
+    batch = _create_batch(auth_client, f"ACT-{uuid4().hex[:6]}")
+
+    login_logs = auth_client.get("/activity-logs?action=login")
+    assert login_logs.status_code == 200
+    assert any(item["action"] == "login" for item in login_logs.json()["items"])
+
+    inspection_response = auth_client.post(
+        "/inspections",
+        json=_inspection_payload(batch["id"], scratch="fail", remarks="Activity fail sample", inspection_score=70),
+    )
+    assert inspection_response.status_code == 201
+    inspection = inspection_response.json()
+
+    defect_response = auth_client.post(
+        "/defects",
+        json={"inspection_id": inspection["id"], "defect_type": "Scratch", "severity": "High", "description": "Activity defect sample"},
+    )
+    assert defect_response.status_code == 201
+    defect = defect_response.json()
+
+    update_response = auth_client.put(f"/defects/{defect['id']}", json={"status": "In Progress"})
+    assert update_response.status_code == 200
+
+    today = "2026-08-06"
+    filtered = auth_client.get(f"/activity-logs?action=defect_updated&user_id={auth_client.get('/auth/me').json()['id']}&start_date={today}&end_date={today}")
+    assert filtered.status_code == 200
+    assert filtered.json()["total"] >= 1
+    assert filtered.json()["items"][0]["action"] == "defect_updated"
+
+    recent = auth_client.get("/activity-logs/recent?limit=5")
+    assert recent.status_code == 200
+    assert any(item["description"].startswith("Updated defect") for item in recent.json())
+
+    dashboard = auth_client.get("/dashboard", headers={"accept": "text/html"})
+    assert dashboard.status_code == 200
+    assert "Updated defect" in dashboard.text
+    assert "View all activity" in dashboard.text
+
+    html_logs = auth_client.get("/activity-logs?action=defect_updated", headers={"accept": "text/html"})
+    assert html_logs.status_code == 200
+    assert "Activity Logs" in html_logs.text
+    assert "Updated defect" in html_logs.text
+
+
+def test_activity_logs_record_report_exports_and_rbac() -> None:
+    admin_client = _authenticated_client("admin")
+    inspector_client = _authenticated_client("inspector")
+
+    assert inspector_client.get("/activity-logs").status_code == 403
+    assert inspector_client.get("/activity-logs/recent").status_code == 200
+
+    export_response = admin_client.get("/reports/batch/export")
+    assert export_response.status_code == 200
+
+    logs = admin_client.get("/activity-logs?action=report_exported")
+    assert logs.status_code == 200
+    assert any(item["description"] == "Exported batch report" for item in logs.json()["items"])
