@@ -136,6 +136,7 @@ async def register(
     username = form_data.get("username", [""])[0].strip()
     email = form_data.get("email", [""])[0].strip()
     password = form_data.get("password", [""])[0]
+    role = normalize_role(form_data.get("role", ["inspector"])[0])
     if len(username) < 3 or len(username) > 50 or len(password) < 8 or len(password) > 128:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid registration data")
     try:
@@ -149,7 +150,7 @@ async def register(
     if existing_user is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email already registered")
 
-    user = User(username=username, email=email, hashed_password=get_password_hash(password), role=INSPECTOR)
+    user = User(username=username, email=email, hashed_password=get_password_hash(password), role=role)
     db.add(user)
     db.commit()
     db.refresh(user)
