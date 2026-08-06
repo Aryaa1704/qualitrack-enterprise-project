@@ -2,7 +2,7 @@
 
 QualiTrack is a Manufacturing Quality Inspection & Defect Analytics Platform.
 
-This repository contains the Phase 5 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, factory management, departments, production lines, machines, products, and production batches, inspections, defect tracking, a live analytics dashboard, and read-only reports with CSV exports. It does not include role permissions yet.
+This repository contains the Phase 5 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, factory management, departments, production lines, machines, products, and production batches, inspections, defect tracking, a live analytics dashboard, read-only reports with CSV exports, role-based access control, activity logs, and in-app notifications.
 
 ## For builders: what this means in simple words
 
@@ -19,8 +19,9 @@ Think of this phase like preparing an empty factory building before machines arr
 - **Machines**: authenticated users can manage equipment under production lines, change machine status, and filter machines by status, production line, or factory.
 - **Products**: authenticated users can manage product catalog records, enforce unique SKU codes, and search/filter product lists.
 - **Batches**: authenticated users can assign product batches to production lines, validate manufacturing/expiry dates, enforce unique batch numbers, filter by relationship/status/date range, and view product batch history.
-- **Dashboard analytics**: authenticated users can view live inspection summaries, pass/fail rates, 30-day trends, top defects, top inspectors, and recent inspections.
+- **Dashboard analytics**: authenticated users can view live inspection summaries, pass/fail rates, 30-day trends, top defects, top inspectors, and recent activity from the audit trail.
 - **Reports**: authenticated users can review inspection, defect, factory, and batch reports with matching CSV exports.
+- **Activity logs and notifications**: admins and quality managers can filter audit logs, and signed-in users see a notification bell populated by recent relevant activity.
 - **Global search and standardized filters**: authenticated users can search products, batches, inspections, and defects from the nav, and list pages share search, sorting, and page-size controls.
 
 ## Project structure
@@ -100,8 +101,14 @@ Then open:
 - Machines: open a factory detail page, then use the Machines section under its production lines.
 - Dashboard: <http://127.0.0.1:8000/dashboard>
 - Reports: <http://127.0.0.1:8000/reports>
+- Activity logs: <http://127.0.0.1:8000/activity-logs>
 - Global search: <http://127.0.0.1:8000/search?q=sample>
 
+
+## Activity log endpoints
+
+- `GET /activity-logs` returns a paginated audit trail and supports `user_id`, `action`, `start_date`, and `end_date` filters. The HTML page is limited to admins and quality managers.
+- `GET /activity-logs/recent` returns recent activity relevant to the logged-in user for the notification bell.
 
 ## Report endpoints
 
@@ -201,7 +208,7 @@ Failed inspections can have one or more linked defects. Authenticated users can 
 
 ## Dashboard analytics
 
-The authenticated dashboard page uses Chart.js and client-side `fetch()` calls so charts are populated from live API data instead of hard-coded template values. It includes summary cards, pass/fail distribution, a 30-day inspection trend, most common defects, top inspectors, and a simple recent-inspections activity feed.
+The authenticated dashboard page uses Chart.js and client-side `fetch()` calls so charts are populated from live API data instead of hard-coded template values. It includes summary cards, pass/fail distribution, a 30-day inspection trend, most common defects, top inspectors, and a recent-activity feed backed by the `activity_logs` audit trail.
 
 ## Dashboard endpoints
 

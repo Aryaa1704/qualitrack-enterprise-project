@@ -17,6 +17,7 @@ from app.models.factory import Batch, Inspection, Product
 from app.models.user import User
 from app.routers.auth import ADMIN, INSPECTOR, QUALITY_MANAGER, get_current_user, get_optional_current_user, redirect_if_forbidden, require_role
 from app.schemas.factory import InspectionCreate, InspectionList, InspectionRead, InspectionUpdate
+from app.services.activity import INSPECTION_CREATED, INSPECTION_UPDATED, log_activity
 
 router = APIRouter(prefix="/inspections", tags=["Inspections"])
 templates = Jinja2Templates(directory="app/templates")
@@ -145,7 +146,9 @@ async def create_inspection(request: Request, db: Annotated[Session, Depends(get
     inspection_data = InspectionCreate(**payload)
     _ensure_batch(db, inspection_data.batch_id)
     inspection = Inspection(**inspection_data.model_dump(), inspector_id=current_user.id)
-    db.add(inspection); db.commit(); db.refresh(inspection)
+    db.add(inspection); db.flush()
+    log_activity(db, current_user, INSPECTION_CREATED, "inspection", inspection.id, f"Created inspection #{inspection.id} for batch {inspection.batch.batch_number}", commit=False)
+    db.commit(); db.refresh(inspection)
     if _wants_html(request):
         return RedirectResponse(url=f"/batches/{inspection.batch_id}", status_code=status.HTTP_303_SEE_OTHER)
     return inspection
@@ -210,6 +213,7 @@ async def update_inspection(inspection_id: int, request: Request, db: Annotated[
     updates = InspectionUpdate(**payload).model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(inspection, field, value)
+    log_activity(db, current_user, INSPECTION_UPDATED, "inspection", inspection.id, f"Updated inspection #{inspection.id} for batch {inspection.batch.batch_number}", commit=False)
     db.commit(); db.refresh(inspection)
     return inspection
 

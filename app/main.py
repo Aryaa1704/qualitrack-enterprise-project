@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.database.session import get_db
+from app.routers.activity_logs import router as activity_logs_router
 from app.routers.auth import ADMIN, INSPECTOR, QUALITY_MANAGER, get_optional_current_user, require_role, router as auth_router
 from app.routers.batches import router as batches_router
 from app.routers.defects import router as defects_router
@@ -39,6 +40,7 @@ app.include_router(inspections_router)
 app.include_router(defects_router)
 app.include_router(dashboard_router)
 app.include_router(reports_router)
+app.include_router(activity_logs_router)
 templates = Jinja2Templates(directory="app/templates")
 
 

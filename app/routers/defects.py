@@ -17,6 +17,7 @@ from app.models.factory import Defect, Inspection
 from app.models.user import User
 from app.routers.auth import ADMIN, INSPECTOR, QUALITY_MANAGER, get_current_user, get_optional_current_user, redirect_if_forbidden, require_role
 from app.schemas.factory import DefectCreate, DefectList, DefectRead, DefectStats, DefectUpdate
+from app.services.activity import DEFECT_CREATED, DEFECT_UPDATED, log_activity
 
 router = APIRouter(prefix="/defects", tags=["Defects"])
 templates = Jinja2Templates(directory="app/templates")
@@ -140,7 +141,9 @@ async def create_defect(request: Request, db: Annotated[Session, Depends(get_db)
     _ensure_failed_inspection(db, defect_data.inspection_id)
     defect = Defect(**defect_data.model_dump())
     _apply_resolution(defect, defect.status)
-    db.add(defect); db.commit(); db.refresh(defect)
+    db.add(defect); db.flush()
+    log_activity(db, current_user, DEFECT_CREATED, "defect", defect.id, f"Created {defect.severity.lower()} defect #{defect.id} for inspection #{defect.inspection_id}", commit=False)
+    db.commit(); db.refresh(defect)
     if _wants_html(request):
         return RedirectResponse(url=f"/inspections/{defect.inspection_id}", status_code=status.HTTP_303_SEE_OTHER)
     return defect
@@ -193,6 +196,7 @@ async def update_defect(defect_id: int, request: Request, db: Annotated[Session,
         _apply_resolution(defect, updates["status"])
     for field, value in updates.items():
         setattr(defect, field, value)
+    log_activity(db, current_user, DEFECT_UPDATED, "defect", defect.id, f"Updated defect #{defect.id} for inspection #{defect.inspection_id}", commit=False)
     db.commit(); db.refresh(defect)
     return defect
 

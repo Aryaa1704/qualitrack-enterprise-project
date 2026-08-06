@@ -17,6 +17,7 @@ from app.database.session import get_db
 from app.models.factory import Batch, Defect, Factory, Inspection, Product, ProductionLine
 from app.models.user import User
 from app.routers.auth import ADMIN, QUALITY_MANAGER, require_role
+from app.services.activity import REPORT_EXPORTED, log_activity
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 templates = Jinja2Templates(directory="app/templates")
@@ -128,6 +129,7 @@ def inspection_report(request: Request, db: Annotated[Session, Depends(get_db)],
 def inspection_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER))], product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None) -> StreamingResponse:
     inspections = list(db.scalars(_inspection_query(product_id, batch_id, inspector_id, status_filter, start_date, end_date).order_by(Inspection.inspection_date.desc(), Inspection.id.desc())).all())
     rows = [[item.id, item.inspection_date, item.batch.batch_number, item.batch.product.name, item.inspector.username, item.overall_status, item.inspection_score] for item in inspections]
+    log_activity(db, current_user, REPORT_EXPORTED, "report", None, "Exported inspection report")
     return _csv_response("inspection-report.csv", ["Inspection ID", "Date", "Batch", "Product", "Inspector", "Status", "Score"], rows)
 
 
@@ -143,6 +145,7 @@ def defect_report(request: Request, db: Annotated[Session, Depends(get_db)], cur
 def defect_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER))], defect_type: str | None = None, severity: str | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None) -> StreamingResponse:
     defects = list(db.scalars(_defect_query(defect_type, severity, status_filter, start_date, end_date).order_by(Defect.created_at.desc(), Defect.id.desc())).all())
     rows = [[item.id, item.created_at, item.inspection_id, item.defect_type, item.severity, item.status, item.description] for item in defects]
+    log_activity(db, current_user, REPORT_EXPORTED, "report", None, "Exported defect report")
     return _csv_response("defect-report.csv", ["Defect ID", "Created", "Inspection ID", "Type", "Severity", "Status", "Description"], rows)
 
 
@@ -158,6 +161,7 @@ def factory_report(request: Request, db: Annotated[Session, Depends(get_db)], cu
 @router.get("/factory/export")
 def factory_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER))]) -> StreamingResponse:
     rows = [[row["factory_id"], row["factory_name"], row["factory_code"], row["total_inspections"], row["pass_count"], row["fail_count"]] for row in _factory_rows(db)]
+    log_activity(db, current_user, REPORT_EXPORTED, "report", None, "Exported factory report")
     return _csv_response("factory-report.csv", ["Factory ID", "Factory", "Code", "Total Inspections", "Pass", "Fail"], rows)
 
 
@@ -173,4 +177,5 @@ def batch_report(request: Request, db: Annotated[Session, Depends(get_db)], curr
 @router.get("/batch/export")
 def batch_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER))]) -> StreamingResponse:
     rows = [[row["batch_id"], row["batch_number"], row["product_name"], row["inspection_count"], row["defect_count"]] for row in _batch_rows(db)]
+    log_activity(db, current_user, REPORT_EXPORTED, "report", None, "Exported batch report")
     return _csv_response("batch-report.csv", ["Batch ID", "Batch", "Product", "Inspections", "Defects"], rows)

@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.database.session import get_db
 from app.models.user import User
 from app.schemas.user import Token, UserRead, UserRoleUpdate
+from app.services.activity import LOGIN, log_activity
 from app.services.auth import create_access_token, decode_access_token, get_password_hash, verify_password
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -183,6 +184,7 @@ async def login(
     if user is None or not verify_password(password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
 
+    log_activity(db, user, LOGIN, "user", user.id, f"{user.username} logged in")
     access_token = create_access_token(user.username)
     if "text/html" in request.headers.get("accept", ""):
         redirect = RedirectResponse(url="/auth/profile", status_code=status.HTTP_303_SEE_OTHER)

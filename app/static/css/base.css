@@ -689,3 +689,79 @@ a {
 .result-list span {
   color: var(--color-muted);
 }
+
+.notification-bell {
+  position: relative;
+}
+
+.notification-bell summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: #fff;
+  cursor: pointer;
+  list-style: none;
+}
+
+.notification-bell summary::-webkit-details-marker {
+  display: none;
+}
+
+.notification-count {
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.notification-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 10;
+  width: min(360px, 90vw);
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.notification-item,
+.activity-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+  text-decoration: none;
+}
+
+.notification-item:last-child,
+.activity-item:last-child {
+  border-bottom: 0;
+}
+
+.notification-item span,
+.activity-item p {
+  margin: 4px 0 0;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  text-transform: capitalize;
+}
+
+.activity-feed {
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}

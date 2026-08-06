@@ -29,3 +29,4 @@ class User(Base):
     )
 
     inspections: Mapped[list["Inspection"]] = relationship(back_populates="inspector")
+    activity_logs: Mapped[list["ActivityLog"]] = relationship(back_populates="user")

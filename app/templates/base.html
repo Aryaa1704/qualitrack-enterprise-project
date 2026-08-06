@@ -20,6 +20,11 @@
             <a class="nav-link" href="/inspections">Inspections</a>
             <a class="nav-link" href="/defects">Defects</a>
             {% if current_user.role in ['admin', 'quality_manager'] %}<a class="nav-link" href="/reports">Reports</a>{% endif %}
+            {% if current_user.role in ['admin', 'quality_manager'] %}<a class="nav-link" href="/activity-logs">Activity Logs</a>{% endif %}
+            <details class="notification-bell">
+              <summary aria-label="Recent notifications">🔔 <span id="notification-count" class="notification-count">0</span></summary>
+              <div class="notification-panel" id="notification-panel"><p class="empty-state">Loading notifications...</p></div>
+            </details>
             {% if current_user.role == 'admin' %}<a class="nav-link" href="/auth/users">Users</a>{% endif %}
             <form class="global-search" action="/search" method="get"><input type="search" name="q" placeholder="Search all records" aria-label="Global search" value="{{ q|default('') }}"><button type="submit">Search</button></form>
             <a class="nav-link" href="/auth/profile">{{ current_user.username }}</a>
@@ -43,5 +48,41 @@
         <p>&copy; 2026 {{ app_name }}. Built for manufacturing quality teams.</p>
       </div>
     </footer>
+    {% if current_user %}
+      <script>
+        async function loadNotifications() {
+          const panel = document.getElementById("notification-panel");
+          const count = document.getElementById("notification-count");
+          if (!panel || !count) return;
+          try {
+            const response = await fetch("/activity-logs/recent?limit=5", { headers: { "Accept": "application/json" } });
+            if (!response.ok) throw new Error("Notification request failed");
+            const items = await response.json();
+            count.textContent = items.length;
+            panel.replaceChildren();
+            if (!items.length) {
+              const empty = document.createElement("p");
+              empty.className = "empty-state";
+              empty.textContent = "No recent activity.";
+              panel.appendChild(empty);
+              return;
+            }
+            items.forEach((item) => {
+              const entry = document.createElement("div");
+              entry.className = "notification-item";
+              const description = document.createElement("strong");
+              description.textContent = item.description;
+              const action = document.createElement("span");
+              action.textContent = item.action.replaceAll("_", " ");
+              entry.append(description, action);
+              panel.appendChild(entry);
+            });
+          } catch (error) {
+            panel.innerHTML = '<p class="empty-state">Notifications unavailable.</p>';
+          }
+        }
+        loadNotifications();
+      </script>
+    {% endif %}
   </body>
 </html>
