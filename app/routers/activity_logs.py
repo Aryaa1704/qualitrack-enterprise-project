@@ -6,11 +6,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.templating import templates
 from app.database.session import get_db
 from app.models.activity import ActivityLog
 from app.models.user import User
@@ -19,7 +19,6 @@ from app.schemas.activity import ActivityLogList, ActivityLogRead
 from app.services.activity import ACTION_CHOICES, recent_activity_query
 
 router = APIRouter(prefix="/activity-logs", tags=["Activity Logs"])
-templates = Jinja2Templates(directory="app/templates")
 settings = get_settings()
 
 

@@ -5,7 +5,6 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
@@ -21,9 +20,9 @@ from app.routers.inspections import router as inspections_router
 from app.routers.products import router as products_router
 from app.routers.reports import router as reports_router
 from app.models.factory import Batch, Defect, Inspection, Product
+from app.templating import STATIC_DIR, templates
 
 settings = get_settings()
-
 app = FastAPI(
     title=settings.app_name,
     description=settings.app_description,
@@ -31,7 +30,7 @@ app = FastAPI(
     debug=settings.debug,
 )
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(auth_router)
 app.include_router(factories_router)
 app.include_router(products_router)
@@ -41,7 +40,6 @@ app.include_router(defects_router)
 app.include_router(dashboard_router)
 app.include_router(reports_router)
 app.include_router(activity_logs_router)
-templates = Jinja2Templates(directory="app/templates")
 
 
 @app.exception_handler(HTTPException)

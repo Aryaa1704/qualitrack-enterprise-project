@@ -7,11 +7,11 @@ from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.templating import templates
 from app.database.session import get_db
 from app.models.factory import Defect, Inspection
 from app.models.user import User
@@ -20,7 +20,6 @@ from app.schemas.factory import DefectCreate, DefectList, DefectRead, DefectStat
 from app.services.activity import DEFECT_CREATED, DEFECT_UPDATED, log_activity
 
 router = APIRouter(prefix="/defects", tags=["Defects"])
-templates = Jinja2Templates(directory="app/templates")
 settings = get_settings()
 DEFECT_TYPES = ("Crack", "Scratch", "Missing Part", "Paint Issue", "Loose Component", "Wrong Label", "Custom")
 SEVERITIES = ("Low", "Medium", "High")

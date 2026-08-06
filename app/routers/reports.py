@@ -7,12 +7,12 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 import csv
 
 from app.core.config import get_settings
+from app.templating import templates
 from app.database.session import get_db
 from app.models.factory import Batch, Defect, Factory, Inspection, Product, ProductionLine
 from app.models.user import User
@@ -20,7 +20,6 @@ from app.routers.auth import ADMIN, QUALITY_MANAGER, require_role
 from app.services.activity import REPORT_EXPORTED, log_activity
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
-templates = Jinja2Templates(directory="app/templates")
 settings = get_settings()
 
 

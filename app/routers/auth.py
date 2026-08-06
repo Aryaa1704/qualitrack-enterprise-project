@@ -6,12 +6,12 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.security import OAuth2PasswordBearer
-from fastapi.templating import Jinja2Templates
 from email_validator import EmailNotValidError, validate_email
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.templating import templates
 from app.database.session import get_db
 from app.models.user import User
 from app.schemas.user import Token, UserRead, UserRoleUpdate
@@ -19,7 +19,6 @@ from app.services.activity import LOGIN, log_activity
 from app.services.auth import create_access_token, decode_access_token, get_password_hash, verify_password
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-templates = Jinja2Templates(directory="app/templates")
 settings = get_settings()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 

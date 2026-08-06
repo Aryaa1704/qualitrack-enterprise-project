@@ -23,6 +23,33 @@ def test_home_page_renders() -> None:
     assert "Track inspections" in response.text
 
 
+def test_static_asset_urls_are_host_relative_and_assets_are_served() -> None:
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'href="/static/css/base.css"' in response.text
+    assert 'src="/static/js/ui.js"' in response.text
+    assert "http://localhost" not in response.text
+    assert "http://127.0.0.1" not in response.text
+
+    css_response = client.get("/static/css/base.css")
+    js_response = client.get("/static/js/ui.js")
+
+    assert css_response.status_code == 200
+    assert css_response.headers["content-type"].startswith("text/css")
+    assert js_response.status_code == 200
+    assert js_response.headers["content-type"].startswith("text/javascript")
+
+
+def test_static_asset_urls_respect_reverse_proxy_root_path() -> None:
+    proxy_client = TestClient(app, root_path="/qualitrack")
+    response = proxy_client.get("/")
+
+    assert response.status_code == 200
+    assert 'href="/qualitrack/static/css/base.css"' in response.text
+    assert 'src="/qualitrack/static/js/ui.js"' in response.text
+
+
 def test_openapi_schema_includes_health_auth_and_factory_endpoints() -> None:
     response = client.get("/openapi.json")
 

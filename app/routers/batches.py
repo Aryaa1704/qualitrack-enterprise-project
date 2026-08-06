@@ -7,11 +7,11 @@ from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.templating import templates
 from app.database.session import get_db
 from app.models.factory import Batch, Inspection, Product, ProductionLine
 from app.models.user import User
@@ -19,7 +19,6 @@ from app.routers.auth import ADMIN, QUALITY_MANAGER, get_current_user, get_optio
 from app.schemas.factory import BatchCreate, BatchList, BatchRead, BatchUpdate
 
 router = APIRouter(prefix="/batches", tags=["Batches"])
-templates = Jinja2Templates(directory="app/templates")
 settings = get_settings()
 
 

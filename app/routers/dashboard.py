@@ -5,11 +5,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.templating import templates
 from app.database.session import get_db
 from app.models.activity import ActivityLog
 from app.models.factory import Batch, Defect, Inspection
@@ -17,7 +17,6 @@ from app.models.user import User
 from app.routers.auth import ADMIN, QUALITY_MANAGER, get_current_user, get_optional_current_user, redirect_if_forbidden, require_role
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
-templates = Jinja2Templates(directory="app/templates")
 settings = get_settings()
 
 
