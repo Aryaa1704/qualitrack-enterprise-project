@@ -2,7 +2,7 @@
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -12,6 +12,11 @@ class Factory(Base):
     """Top-level manufacturing site entity."""
 
     __tablename__ = "factories"
+    __table_args__ = (
+        Index("ix_factories_name", "name"),
+        Index("ix_factories_location", "location"),
+        Index("ix_factories_status", "status"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -32,7 +37,11 @@ class Department(Base):
     """Factory-scoped department grouping for production lines."""
 
     __tablename__ = "departments"
-    __table_args__ = (UniqueConstraint("factory_id", "code", name="uq_departments_factory_code"),)
+    __table_args__ = (
+        UniqueConstraint("factory_id", "code", name="uq_departments_factory_code"),
+        Index("ix_departments_name", "name"),
+        Index("ix_departments_status", "status"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     factory_id: Mapped[int] = mapped_column(ForeignKey("factories.id"), nullable=False, index=True)
@@ -53,7 +62,11 @@ class ProductionLine(Base):
     """Factory-scoped production line optionally grouped by a department."""
 
     __tablename__ = "production_lines"
-    __table_args__ = (UniqueConstraint("factory_id", "code", name="uq_production_lines_factory_code"),)
+    __table_args__ = (
+        UniqueConstraint("factory_id", "code", name="uq_production_lines_factory_code"),
+        Index("ix_production_lines_name", "name"),
+        Index("ix_production_lines_status", "status"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     factory_id: Mapped[int] = mapped_column(ForeignKey("factories.id"), nullable=False, index=True)
@@ -77,7 +90,12 @@ class Machine(Base):
     """Production-line-scoped equipment used for manufacturing work."""
 
     __tablename__ = "machines"
-    __table_args__ = (UniqueConstraint("production_line_id", "code", name="uq_machines_line_code"),)
+    __table_args__ = (
+        UniqueConstraint("production_line_id", "code", name="uq_machines_line_code"),
+        Index("ix_machines_name", "name"),
+        Index("ix_machines_type", "type"),
+        Index("ix_machines_status", "status"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     production_line_id: Mapped[int] = mapped_column(ForeignKey("production_lines.id"), nullable=False, index=True)
@@ -104,6 +122,11 @@ class Product(Base):
     """Manufactured product catalog item."""
 
     __tablename__ = "products"
+    __table_args__ = (
+        Index("ix_products_name", "name"),
+        Index("ix_products_category", "category"),
+        Index("ix_products_status", "status"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -123,6 +146,10 @@ class Batch(Base):
     """Production batch assigned to a product and production line."""
 
     __tablename__ = "batches"
+    __table_args__ = (
+        Index("ix_batches_manufacturing_date", "manufacturing_date"),
+        Index("ix_batches_status", "status"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False, index=True)
@@ -147,6 +174,7 @@ class Defect(Base):
     """Defect recorded against a failed quality inspection."""
 
     __tablename__ = "defects"
+    __table_args__ = (Index("ix_defects_created_at", "created_at"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     inspection_id: Mapped[int] = mapped_column(ForeignKey("inspections.id"), nullable=False, index=True)
@@ -169,6 +197,11 @@ class Inspection(Base):
     """Quality inspection result recorded against a production batch."""
 
     __tablename__ = "inspections"
+    __table_args__ = (
+        Index("ix_inspections_inspection_date", "inspection_date"),
+        Index("ix_inspections_overall_status", "overall_status"),
+        Index("ix_inspections_inspection_score", "inspection_score"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     batch_id: Mapped[int] = mapped_column(ForeignKey("batches.id"), nullable=False, index=True)

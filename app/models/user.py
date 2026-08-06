@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Integer, String
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -14,6 +14,7 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint("role in ('admin', 'quality_manager', 'inspector')", name="ck_users_role_valid"),
+        Index("ix_users_role", "role"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
