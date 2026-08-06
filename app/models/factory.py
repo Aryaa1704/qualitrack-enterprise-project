@@ -2,7 +2,7 @@
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -140,3 +140,33 @@ class Batch(Base):
 
     product: Mapped[Product] = relationship(back_populates="batches")
     production_line: Mapped[ProductionLine] = relationship(back_populates="batches")
+    inspections: Mapped[list["Inspection"]] = relationship(back_populates="batch", cascade="all, delete-orphan")
+
+
+class Inspection(Base):
+    """Quality inspection result recorded against a production batch."""
+
+    __tablename__ = "inspections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    batch_id: Mapped[int] = mapped_column(ForeignKey("batches.id"), nullable=False, index=True)
+    inspector_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    inspection_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    scratch: Mapped[str] = mapped_column(String(10), nullable=False)
+    color: Mapped[str] = mapped_column(String(10), nullable=False)
+    weight_actual: Mapped[float] = mapped_column(Float, nullable=False)
+    weight_spec: Mapped[float] = mapped_column(Float, nullable=False)
+    dimensions_actual: Mapped[str] = mapped_column(String(120), nullable=False)
+    dimensions_spec: Mapped[str] = mapped_column(String(120), nullable=False)
+    packaging: Mapped[str] = mapped_column(String(10), nullable=False)
+    functional_test: Mapped[str] = mapped_column(String(10), nullable=False)
+    overall_status: Mapped[str] = mapped_column(String(10), nullable=False)
+    inspection_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    remarks: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    batch: Mapped[Batch] = relationship(back_populates="inspections")
+    inspector: Mapped["User"] = relationship(back_populates="inspections")

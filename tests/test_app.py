@@ -576,3 +576,122 @@ def test_batch_crud_relationship_validation_filter_and_pagination() -> None:
     delete_response = auth_client.delete(f"/batches/{batch['id']}")
     assert delete_response.status_code == 200
     assert delete_response.json()["status"] == "inactive"
+
+
+def _create_batch(auth_client: TestClient, suffix: str | None = None) -> dict:
+    unique = suffix or uuid4().hex[:8]
+    product = _create_product(auth_client, f"IB-{unique}")
+    line = _create_line(auth_client)
+    response = auth_client.post(
+        "/batches",
+        json={
+            "product_id": product["id"],
+            "production_line_id": line["id"],
+            "batch_number": f"INS-BATCH-{unique}",
+            "manufacturing_date": "2026-08-01",
+            "expiry_date": "2026-09-01",
+            "quantity": 100,
+            "status": "completed",
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+def _inspection_payload(batch_id: int, **overrides: object) -> dict:
+    payload: dict[str, object] = {
+        "batch_id": batch_id,
+        "scratch": "pass",
+        "color": "pass",
+        "weight_actual": 10.1,
+        "weight_spec": 10.0,
+        "dimensions_actual": "10x20x30",
+        "dimensions_spec": "10x20x30",
+        "packaging": "pass",
+        "functional_test": "pass",
+        "inspection_score": 98,
+        "remarks": "Within tolerance",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_openapi_schema_includes_inspection_endpoints() -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert "/inspections" in paths
+    assert "/inspections/{inspection_id}" in paths
+    assert "/inspections/batch/{batch_id}/history" in paths
+    assert "/inspections/search" in paths
+    assert "/inspections/filter" in paths
+    assert {"post", "get"}.issubset(paths["/inspections"])
+    assert {"get", "put", "delete"}.issubset(paths["/inspections/{inspection_id}"])
+
+
+def test_inspection_workflow_calculation_inspector_history_edit_delete_and_filters() -> None:
+    auth_client = _authenticated_client()
+    batch = _create_batch(auth_client)
+    me_response = auth_client.get("/auth/me")
+    assert me_response.status_code == 200
+    current_user_id = me_response.json()["id"]
+
+    create_response = auth_client.post(
+        "/inspections",
+        json=_inspection_payload(batch["id"], inspector_id=999999, color="fail", remarks="Color is outside tolerance"),
+    )
+    assert create_response.status_code == 201
+    inspection = create_response.json()
+    assert inspection["overall_status"] == "Fail"
+    assert inspection["inspector_id"] == current_user_id
+
+    override_response = auth_client.post(
+        "/inspections",
+        json=_inspection_payload(batch["id"], scratch="fail", overall_status="Pass", remarks="Engineering waiver approved"),
+    )
+    assert override_response.status_code == 201
+    assert override_response.json()["overall_status"] == "Pass"
+
+    missing_remarks_response = auth_client.post(
+        "/inspections",
+        json=_inspection_payload(batch["id"], scratch="fail", overall_status="Pass", remarks=""),
+    )
+    assert missing_remarks_response.status_code == 422
+
+    history_response = auth_client.get(f"/inspections/batch/{batch['id']}/history")
+    assert history_response.status_code == 200
+    assert len(history_response.json()) == 2
+
+    html_history_response = auth_client.get(f"/batches/{batch['id']}", headers={"accept": "text/html"})
+    assert html_history_response.status_code == 200
+    assert "Inspection History" in html_history_response.text
+    assert "Color is outside tolerance" not in html_history_response.text
+
+    update_response = auth_client.put(
+        f"/inspections/{inspection['id']}",
+        json={"color": "pass", "overall_status": "Pass", "remarks": "Corrected on recheck", "inspection_score": 100},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["overall_status"] == "Pass"
+    assert update_response.json()["inspection_score"] == 100
+
+    list_response = auth_client.get(f"/inspections?search={batch['batch_number']}&batch_id={batch['id']}&status_filter=Pass&page=1&per_page=1")
+    assert list_response.status_code == 200
+    assert list_response.json()["pages"] >= 2
+    assert len(list_response.json()["items"]) == 1
+
+    search_response = auth_client.get(f"/inspections/search?q={batch['batch_number']}&status_filter=Pass")
+    assert search_response.status_code == 200
+    assert search_response.json()["total"] == 2
+
+    filter_response = auth_client.get(f"/inspections/filter?batch_id={batch['id']}&inspector_id={current_user_id}&status_filter=Pass")
+    assert filter_response.status_code == 200
+    assert filter_response.json()["total"] == 2
+
+    delete_response = auth_client.delete(f"/inspections/{inspection['id']}")
+    assert delete_response.status_code == 200
+
+    updated_history_response = auth_client.get(f"/inspections/batch/{batch['id']}/history")
+    assert updated_history_response.status_code == 200
+    assert len(updated_history_response.json()) == 1

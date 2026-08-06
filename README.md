@@ -163,3 +163,8 @@ Factory, department, production line, machine, product, and batch pages and APIs
 ```bash
 pytest
 ```
+
+
+## Quality inspections
+
+Authenticated inspectors can create, edit, delete, search, and filter batch quality inspections. New inspections are always attributed to the logged-in user, auto-calculate Pass/Fail status from inspection checks, and appear in batch inspection history.

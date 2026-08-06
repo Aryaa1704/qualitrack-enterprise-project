@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.database.session import get_db
-from app.models.factory import Batch, Product, ProductionLine
+from app.models.factory import Batch, Inspection, Product, ProductionLine
 from app.models.user import User
 from app.routers.auth import get_current_user, get_optional_current_user
 from app.schemas.factory import BatchCreate, BatchList, BatchRead, BatchUpdate
@@ -158,8 +158,12 @@ def list_batches(request: Request, db: Annotated[Session, Depends(get_db)], curr
 
 
 @router.get("/{batch_id}", response_model=BatchRead)
-def get_batch(batch_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Batch:
-    return _get_batch_or_404(db, batch_id)
+def get_batch(batch_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Batch | HTMLResponse:
+    batch = _get_batch_or_404(db, batch_id)
+    if _wants_html(request):
+        inspections = list(db.scalars(select(Inspection).where(Inspection.batch_id == batch.id).order_by(Inspection.inspection_date.desc(), Inspection.id.desc())).all())
+        return templates.TemplateResponse("batches/detail.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batch": batch, "inspections": inspections})
+    return batch
 
 
 @router.get("/{batch_id}/edit", response_class=HTMLResponse, include_in_schema=False)
