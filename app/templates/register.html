@@ -16,7 +16,12 @@
 
     <label for="password">Password</label>
     <input id="password" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required />
-
+     <label for="role">Role</label>
+        <select id="role" name="role">
+          <option value="inspector">Inspector</option>
+          <option value="quality_manager">Quality Manager</option>
+          <option value="admin">Admin</option>
+        </select>
     <button class="button" type="submit">Create account</button>
   </form>
   <p class="auth-switch">Already registered? <a href="/auth/login">Log in</a>.</p>
