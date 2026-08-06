@@ -37,3 +37,10 @@ class TokenData(BaseModel):
     """Decoded token subject."""
 
     username: str | None = None
+
+
+
+class UserRoleUpdate(BaseModel):
+    """Role change payload for admin user management."""
+
+    role: str = Field(pattern="^(admin|quality_manager|inspector)$")
