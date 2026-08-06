@@ -1,228 +1,172 @@
 # QualiTrack
 
-QualiTrack is a Manufacturing Quality Inspection & Defect Analytics Platform.
+QualiTrack is a production-ready FastAPI portfolio application for manufacturing quality inspection, defect tracking, reporting, and role-based plant operations.
 
-This repository contains the Phase 5 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, factory management, departments, production lines, machines, products, and production batches, inspections, defect tracking, a live analytics dashboard, read-only reports with CSV exports, role-based access control, activity logs, and in-app notifications.
+## Project overview
 
-## For builders: what this means in simple words
+QualiTrack helps manufacturing teams manage factories, departments, production lines, machines, products, batches, quality inspections, defects, dashboards, reports, activity logs, notifications, and global search from one web application.
 
-Think of this phase like preparing an empty factory building before machines arrive:
+Demo roles:
 
-- **FastAPI app**: the main web application engine.
-- **Router/API foundation**: the place where future screens and API endpoints will be connected.
-- **Database session wiring**: the safe connection path to the future SQLite database.
-- **Templates and CSS**: the basic page frame and visual style.
-- **Health check**: a simple endpoint that says, "the app is alive."
-- **Authentication**: inspectors can register, log in, log out, and view a protected profile.
-- **Factory management**: authenticated users can create, review, update, and soft-delete factories.
-- **Departments and production lines**: authenticated users can manage factory-scoped departments and production lines, including optional department grouping for lines.
-- **Machines**: authenticated users can manage equipment under production lines, change machine status, and filter machines by status, production line, or factory.
-- **Products**: authenticated users can manage product catalog records, enforce unique SKU codes, and search/filter product lists.
-- **Batches**: authenticated users can assign product batches to production lines, validate manufacturing/expiry dates, enforce unique batch numbers, filter by relationship/status/date range, and view product batch history.
-- **Dashboard analytics**: authenticated users can view live inspection summaries, pass/fail rates, 30-day trends, top defects, top inspectors, and recent activity from the audit trail.
-- **Reports**: authenticated users can review inspection, defect, factory, and batch reports with matching CSV exports.
-- **Activity logs and notifications**: admins and quality managers can filter audit logs, and signed-in users see a notification bell populated by recent relevant activity.
-- **Global search and standardized filters**: authenticated users can search products, batches, inspections, and defects from the nav, and list pages share search, sorting, and page-size controls.
+| Role | Demo username | Password | Access summary |
+| --- | --- | --- | --- |
+| Admin | `admin_demo` | `DemoPass123!` | Full access, including user role management. |
+| Quality Manager | `manager_demo` | `DemoPass123!` | Quality workflows, dashboards, reports, and view-only master data. |
+| Inspector | `inspector_demo` | `DemoPass123!` | Inspection and defect workflows plus profile access. |
 
-## Project structure
+## Architecture summary
 
 ```text
-QualiTrack/
-├── app/
-│   ├── api/
-│   ├── core/
-│   ├── database/
-│   ├── models/
-│   ├── schemas/
-│   ├── services/
-│   ├── templates/
-│   ├── static/
-│   │   ├── css/
-│   │   ├── js/
-│   │   └── images/
-│   ├── routers/
-│   ├── utils/
-│   └── main.py
-├── migrations/
-│   └── versions/
-├── tests/
-├── requirements.txt
-├── README.md
-├── .gitignore
-├── .env.example
-├── LICENSE
-└── run.py
+app/
+├── core/          # Settings and configuration
+├── database/      # SQLAlchemy engine, session, and base metadata
+├── models/        # SQLAlchemy models for users, plant hierarchy, quality data, audit logs
+├── routers/       # FastAPI route modules and HTML/API handlers
+├── schemas/       # Pydantic request/response schemas
+├── services/      # Authentication and activity-log helpers
+├── static/        # CSS, JavaScript, and image assets
+├── templates/     # Jinja2 pages and reusable components
+└── main.py        # FastAPI app assembly, router registration, error handlers
+migrations/        # Alembic migration history
+scripts/           # Release/demo operational scripts
+tests/             # Regression tests
 ```
 
-## Setup
+The application uses FastAPI, SQLAlchemy 2.x, SQLite by default, Alembic-ready migrations, Jinja2 templates, vanilla JavaScript, Chart.js, JWT cookie authentication, and role-based access control.
 
-Create and activate a virtual environment:
+## Setup from a fresh clone
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
+1. Create and activate a virtual environment:
+
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Create local configuration:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Run database migrations:
+
+   ```bash
+   alembic upgrade head
+   ```
+
+5. Seed demo data:
+
+   ```bash
+   python scripts/seed_demo.py
+   ```
+
+6. Start the app:
+
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+
+7. Open the application:
+
+   - Home: <http://127.0.0.1:8000/>
+   - API docs: <http://127.0.0.1:8000/docs>
+   - Health check: <http://127.0.0.1:8000/health>
+
+## Main modules
+
+- **Authentication**: registration, login, logout, profile, JWT cookies, and admin role management.
+- **Factory hierarchy**: factories, departments, production lines, and machines.
+- **Product and batch management**: product catalog, production batch assignment, validation, filtering, and history.
+- **Inspections**: quality inspection creation, editing, pass/fail scoring, detail pages, and batch history.
+- **Defects**: failed-inspection defect logging, corrective actions, resolution status, and analytics grouping.
+- **Dashboard**: live inspection summaries, pass/fail rates, trends, top defects, top inspectors, and activity feed.
+- **Reports**: inspection, defect, factory, and batch reports with CSV exports.
+- **Activity logs and notifications**: audit trail for important user actions and recent-activity notifications.
+- **Global search**: searchable products, batches, inspections, and defects.
+
+## API behavior
+
+All API errors use a consistent response envelope:
+
+```json
+{
+  "detail": "Human-readable error or validation details",
+  "code": "machine_readable_code"
+}
 ```
 
-Install dependencies:
+Common codes include `not_authenticated`, `not_authorized`, `not_found`, `conflict`, and `validation_error`.
 
-```bash
-pip install -r requirements.txt
-```
+## Screenshots
 
-Optionally copy the example environment file:
+Add portfolio screenshots here after deploying or running locally:
 
-```bash
-cp .env.example .env
-```
+- Home/dashboard screenshot: `docs/screenshots/dashboard.png`
+- Factory hierarchy screenshot: `docs/screenshots/factories.png`
+- Inspection workflow screenshot: `docs/screenshots/inspections.png`
+- Defect analytics screenshot: `docs/screenshots/defects.png`
+- Reports screenshot: `docs/screenshots/reports.png`
 
-## Run the app
+## Testing
 
-```bash
-uvicorn app.main:app --reload
-```
-
-Or:
-
-```bash
-python run.py
-```
-
-Then open:
-
-- Home page: <http://127.0.0.1:8000/>
-- Swagger API docs: <http://127.0.0.1:8000/docs>
-- Health check: <http://127.0.0.1:8000/health>
-- Register: <http://127.0.0.1:8000/auth/register>
-- Login: <http://127.0.0.1:8000/auth/login>
-- Profile: <http://127.0.0.1:8000/auth/profile>
-- Factories: <http://127.0.0.1:8000/factories>
-- Products: <http://127.0.0.1:8000/products>
-- Batches: <http://127.0.0.1:8000/batches>
-- Machines: open a factory detail page, then use the Machines section under its production lines.
-- Dashboard: <http://127.0.0.1:8000/dashboard>
-- Reports: <http://127.0.0.1:8000/reports>
-- Activity logs: <http://127.0.0.1:8000/activity-logs>
-- Global search: <http://127.0.0.1:8000/search?q=sample>
-
-
-## Activity log endpoints
-
-- `GET /activity-logs` returns a paginated audit trail and supports `user_id`, `action`, `start_date`, and `end_date` filters. The HTML page is limited to admins and quality managers.
-- `GET /activity-logs/recent` returns recent activity relevant to the logged-in user for the notification bell.
-
-## Report endpoints
-
-- `GET /reports/inspection` returns filtered inspection report data or renders the inspection report page.
-- `GET /reports/inspection/export` downloads the filtered inspection report as CSV.
-- `GET /reports/defect` returns filtered defect report data or renders the defect report page.
-- `GET /reports/defect/export` downloads the filtered defect report as CSV.
-- `GET /reports/factory` returns factory-level pass/fail inspection aggregates or renders the factory report page.
-- `GET /reports/factory/export` downloads the factory report as CSV.
-- `GET /reports/batch` returns batch-level inspection and defect counts or renders the batch report page.
-- `GET /reports/batch/export` downloads the batch report as CSV.
-
-## Authentication endpoints
-
-- `POST /auth/register` creates a user account with the default `inspector` role.
-- `POST /auth/login` validates credentials, issues a JWT access token, and stores it in an HTTP-only cookie for browser sessions.
-- `GET /auth/me` returns the logged-in user's public profile details.
-- `POST /auth/logout` clears the browser session cookie.
-
-Run migrations before first use so the `users` table exists:
-
-```bash
-alembic upgrade head
-```
-
-## Factory endpoints
-
-- `POST /factories` creates a factory.
-- `GET /factories` returns a paginated factory list with `search`, `sort_by`, `sort_order`, `page`, and `page_size` query parameters.
-- `GET /factories/{factory_id}` returns one factory.
-- `PUT /factories/{factory_id}` updates a factory.
-- `DELETE /factories/{factory_id}` soft-deletes a factory by marking it inactive.
-
-## Department and production line endpoints
-
-- `POST /factories/{factory_id}/departments` creates a factory-scoped department.
-- `GET /factories/{factory_id}/departments` returns active departments with pagination.
-- `GET /factories/{factory_id}/departments/{dept_id}` returns one active department.
-- `PUT /factories/{factory_id}/departments/{dept_id}` updates a department.
-- `DELETE /factories/{factory_id}/departments/{dept_id}` soft-deletes a department by marking it inactive.
-- `POST /factories/{factory_id}/production-lines` creates a factory-scoped production line.
-- `GET /factories/{factory_id}/production-lines` returns active production lines with pagination.
-- `GET /factories/{factory_id}/production-lines/{line_id}` returns one active production line.
-- `PUT /factories/{factory_id}/production-lines/{line_id}` updates a production line.
-- `DELETE /factories/{factory_id}/production-lines/{line_id}` soft-deletes a production line by marking it inactive.
-
-## Machine endpoints
-
-- `POST /factories/{factory_id}/production-lines/{line_id}/machines` creates a machine under a production line.
-- `GET /factories/{factory_id}/production-lines/{line_id}/machines` returns machines and supports `status`, `status_filter`, `production_line_id`, and `factory_filter_id` query filters.
-- `GET /factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}` returns one machine.
-- `PUT /factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}` updates a machine.
-- `PATCH /factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}/status` changes only the machine status.
-- `DELETE /factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}` soft-deletes a machine by marking it inactive.
-
-## Product endpoints
-
-- `POST /products` creates a product.
-- `GET /products` returns products with search, category, status, sorting, and pagination filters.
-- `GET /products/{product_id}` returns one product; browser views include batch history.
-- `PUT /products/{product_id}` updates a product.
-- `DELETE /products/{product_id}` soft-deletes a product by marking it inactive.
-
-## Batch endpoints
-
-- `POST /batches` creates a batch assigned to a product and production line.
-- `GET /batches` returns batches with search, product, production line, status, manufacturing date range, sorting, and pagination filters.
-- `GET /batches/{batch_id}` returns one batch.
-- `PUT /batches/{batch_id}` updates a batch.
-- `DELETE /batches/{batch_id}` soft-deletes a batch by marking it inactive.
-
-Factory, department, production line, machine, product, and batch pages and APIs require an authenticated user session.
-
-## Tests
+Run the regression suite:
 
 ```bash
 pytest
 ```
 
+Run a fresh database smoke test:
 
-## Quality inspections
+```bash
+rm -f qualitrack.db
+alembic upgrade head
+python scripts/seed_demo.py
+uvicorn app.main:app --reload
+```
 
-Authenticated inspectors can create, edit, delete, search, and filter batch quality inspections. New inspections are always attributed to the logged-in user, auto-calculate Pass/Fail status from inspection checks, and appear in batch inspection history.
+## Deployment guide
 
-## Defect tracking
+### Render or Railway
 
-Failed inspections can have one or more linked defects. Authenticated users can add defects from a failed inspection detail page, edit corrective actions and statuses, mark defects resolved, filter the defect list by type/severity/status/date range, and read grouped counts for future dashboard analytics.
+1. Create a new Python web service from this repository.
+2. Set the start command:
 
-## Defect endpoints
+   ```bash
+   uvicorn app.main:app --host 0.0.0.0 --port $PORT
+   ```
 
-- `POST /defects` creates a defect linked to a failed inspection.
-- `GET /defects` returns defects with search, type, severity, status, created-date range, sorting, and pagination filters.
-- `GET /defects/stats` returns defect counts grouped by type and by severity.
-- `GET /defects/{defect_id}` returns one defect.
-- `PUT /defects/{defect_id}` updates a defect and automatically sets `resolved_date` when status becomes `Resolved`.
-- `DELETE /defects/{defect_id}` deletes a defect.
+3. Add environment variables:
 
-## Dashboard analytics
+   ```text
+   DATABASE_URL=sqlite:///./qualitrack.db
+   SECRET_KEY=<strong-random-secret>
+   DEBUG=false
+   ```
 
-The authenticated dashboard page uses Chart.js and client-side `fetch()` calls so charts are populated from live API data instead of hard-coded template values. It includes summary cards, pass/fail distribution, a 30-day inspection trend, most common defects, top inspectors, and a recent-activity feed backed by the `activity_logs` audit trail.
+4. Run migrations before the first web process starts. On platforms with release commands, use:
 
-## Dashboard endpoints
+   ```bash
+   alembic upgrade head && python scripts/seed_demo.py
+   ```
 
-- `GET /dashboard/summary` returns today's inspection count, live pass/fail percentages, batches with zero inspections, and unresolved high-severity defects.
-- `GET /dashboard/trend` returns daily inspection counts for the last 30 days.
-- `GET /dashboard/top-defects` returns defect counts grouped by defect type for charting.
-- `GET /dashboard/top-inspector` returns inspection counts grouped by inspector for charting.
+For a production team deployment, use a managed PostgreSQL database URL instead of SQLite and run migrations as a release step.
 
-## Role-based access control
+### Docker-compatible command
 
-QualiTrack supports three formal roles from the existing `users.role` field:
+If deploying inside a Python container, install dependencies and run:
 
-- `admin`: full access to all pages and APIs, including user role management.
-- `quality_manager`: can manage inspections, defects, dashboard, and reports; factories, products, and batches are view-only.
-- `inspector`: can access inspection and defect workflows plus their own profile; lower-privileged direct API calls receive `403 Not authorized`.
+```bash
+alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
 
-Admins can review and change roles at <http://127.0.0.1:8000/auth/users>. The admin API endpoint is `PUT /auth/users/{user_id}/role` with a JSON body such as `{ "role": "quality_manager" }`.
+## License
+
+See [LICENSE](LICENSE).

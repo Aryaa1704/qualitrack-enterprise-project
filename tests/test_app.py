@@ -1105,3 +1105,20 @@ def test_activity_logs_record_report_exports_and_rbac() -> None:
     logs = admin_client.get("/activity-logs?action=report_exported")
     assert logs.status_code == 200
     assert any(item["description"] == "Exported batch report" for item in logs.json()["items"])
+
+
+def test_api_errors_use_standard_shape() -> None:
+    response = client.get("/auth/me")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Not authenticated", "code": "not_authenticated"}
+
+
+def test_validation_errors_use_standard_shape() -> None:
+    auth_client = _authenticated_client()
+    response = auth_client.post("/factories", json={"name": "", "code": "", "location": ""})
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["code"] == "validation_error"
+    assert payload["detail"] == "Invalid factory data"

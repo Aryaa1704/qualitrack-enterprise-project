@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -44,13 +45,39 @@ app.include_router(activity_logs_router)
 templates = Jinja2Templates(directory="app/templates")
 
 
+def _error_code(status_code: int) -> str:
+    """Return a stable machine-readable error code for an HTTP status."""
+
+    return {
+        status.HTTP_400_BAD_REQUEST: "bad_request",
+        status.HTTP_401_UNAUTHORIZED: "not_authenticated",
+        status.HTTP_403_FORBIDDEN: "not_authorized",
+        status.HTTP_404_NOT_FOUND: "not_found",
+        status.HTTP_409_CONFLICT: "conflict",
+        status.HTTP_422_UNPROCESSABLE_ENTITY: "validation_error",
+    }.get(status_code, "http_error")
+
+
+def _error_response(status_code: int, detail: object, code: str | None = None) -> JSONResponse:
+    """Build the standard API error response shape used by every router."""
+
+    return JSONResponse(status_code=status_code, content={"detail": detail, "code": code or _error_code(status_code)})
+
+
 @app.exception_handler(HTTPException)
 async def html_forbidden_redirect(request: Request, exc: HTTPException):
-    """Redirect browser users to a not-authorized page while preserving API 403 responses."""
+    """Redirect browser users to a not-authorized page while preserving standardized API errors."""
 
     if exc.status_code == status.HTTP_403_FORBIDDEN and "text/html" in request.headers.get("accept", "") and request.url.path != "/auth/not-authorized":
         return RedirectResponse(url="/auth/not-authorized", status_code=status.HTTP_303_SEE_OTHER)
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    return _error_response(exc.status_code, exc.detail)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return FastAPI/Pydantic validation errors in the standard API error envelope."""
+
+    return _error_response(status.HTTP_422_UNPROCESSABLE_ENTITY, exc.errors(), "validation_error")
 
 
 @app.get("/", response_class=HTMLResponse, tags=["Pages"])
