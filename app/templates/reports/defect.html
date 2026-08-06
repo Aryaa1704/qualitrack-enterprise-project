@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Defect Report | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page-header"><div><p class="eyebrow">Reports</p><h1>Defect Report</h1><p class="section-copy">Filtered defect status and severity analytics.</p></div><a class="button button-secondary" href="/reports">All reports</a></section>
+<form class="filter-form" method="get" action="/reports/defect">
+  <select name="defect_type"><option value="">All types</option>{% for value in ["Crack", "Scratch", "Missing Part", "Paint Issue", "Loose Component", "Wrong Label", "Custom"] %}<option value="{{ value }}" {% if defect_type == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select>
+  <select name="severity"><option value="">All severities</option>{% for value in ["Low", "Medium", "High"] %}<option value="{{ value }}" {% if severity == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select>
+  <select name="status_filter"><option value="">All statuses</option>{% for value in ["Open", "In Progress", "Resolved"] %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select>
+  <input type="date" name="start_date" value="{{ start_date }}" /><input type="date" name="end_date" value="{{ end_date }}" />
+  <button class="button" type="submit">Apply filters</button><a class="button button-secondary" href="/reports/defect/export?defect_type={{ defect_type }}&severity={{ severity }}&status_filter={{ status_filter }}&start_date={{ start_date }}&end_date={{ end_date }}">Export CSV</a>
+</form>
+<section class="dashboard-summary"><article class="metric-card"><span>Open</span><strong>{{ summary.open }}</strong></article><article class="metric-card"><span>Resolved</span><strong>{{ summary.resolved }}</strong></article><article class="metric-card metric-card-alert"><span>Critical</span><strong>{{ summary.critical }}</strong></article></section>
+<div class="table-card"><table class="data-table"><thead><tr><th>Created</th><th>Inspection</th><th>Type</th><th>Severity</th><th>Status</th><th>Description</th></tr></thead><tbody>{% for defect in items %}<tr><td>{{ defect.created_at }}</td><td>{{ defect.inspection_id }}</td><td>{{ defect.defect_type }}</td><td>{{ defect.severity }}</td><td>{{ defect.status }}</td><td>{{ defect.description }}</td></tr>{% else %}<tr><td colspan="6">No defects match these filters.</td></tr>{% endfor %}</tbody></table></div>
+<p class="section-copy">Page {{ page }} of {{ pages }} · {{ total }} results</p>
+{% endblock %}

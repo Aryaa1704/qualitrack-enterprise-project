@@ -615,3 +615,38 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+.global-search {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.global-search input {
+  min-width: 12rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+}
+
+.advanced-filter-panel {
+  margin-bottom: 1rem;
+}
+
+.result-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.result-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.65rem 0;
+}
+
+.result-list li:last-child {
+  border-bottom: 0;
+}

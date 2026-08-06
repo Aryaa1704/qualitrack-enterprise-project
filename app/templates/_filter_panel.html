@@ -1,0 +1,20 @@
+<form class="inline-form filter-form advanced-filter-panel" action="{{ filter_action }}" method="get">
+  {% for field in filter_fields %}
+    {% if field.type == "select" %}
+      <select name="{{ field.name }}" aria-label="{{ field.label }}">
+        <option value="">{{ field.placeholder }}</option>
+        {% for option in field.options %}
+          <option value="{{ option.value if option.value is defined else option }}" {% if field.value == (option.value if option.value is defined else option) %}selected{% endif %}>{{ option.label if option.label is defined else option }}</option>
+        {% endfor %}
+      </select>
+    {% else %}
+      <input type="{{ field.type }}" name="{{ field.name }}" value="{{ field.value }}" placeholder="{{ field.placeholder }}" aria-label="{{ field.label }}">
+    {% endif %}
+  {% endfor %}
+  <select name="sort_by" aria-label="Sort by">
+    {% for option in sort_options %}<option value="{{ option.value }}" {% if sort_by == option.value %}selected{% endif %}>Sort: {{ option.label }}</option>{% endfor %}
+  </select>
+  <select name="sort_order" aria-label="Sort order"><option value="asc" {% if sort_order == "asc" %}selected{% endif %}>Ascending</option><option value="desc" {% if sort_order == "desc" %}selected{% endif %}>Descending</option></select>
+  <input type="number" name="page_size" value="{{ page_size }}" min="1" max="50" aria-label="Page size">
+  <button class="button" type="submit">Apply filters</button>
+</form>

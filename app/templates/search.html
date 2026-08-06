@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Search | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page-header"><div><p class="eyebrow">Global Search</p><h1>Search Results</h1><p class="section-copy">Grouped results for products, batches, inspections, and defects.</p></div></section>
+<form class="inline-form filter-form" action="/search" method="get"><input name="q" value="{{ q }}" placeholder="Search products, batches, inspections, defects"><button class="button" type="submit">Search</button></form>
+{% for title, items, empty in [("Products", products, "No products found."), ("Batches", batches, "No batches found."), ("Inspections", inspections, "No inspections found."), ("Defects", defects, "No defects found.")] %}
+  <section class="table-card" aria-label="{{ title }} results"><h2>{{ title }}</h2>{% if items %}<ul class="result-list">{% for item in items %}<li>{% if title == "Products" %}<a href="/products/{{ item.id }}">{{ item.name }}</a> <span>{{ item.sku_code }}</span>{% elif title == "Batches" %}<a href="/batches/{{ item.id }}">{{ item.batch_number }}</a> <span>{{ item.product.name }}</span>{% elif title == "Inspections" %}<a href="/inspections/{{ item.id }}">Inspection #{{ item.id }}</a> <span>{{ item.overall_status }} · {{ item.batch.batch_number }}</span>{% else %}<a href="/defects/{{ item.id }}/edit">{{ item.defect_type }}</a> <span>{{ item.severity }} · {{ item.status }}</span>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="empty-state">{{ empty }}</p>{% endif %}</section>
+{% endfor %}
+{% endblock %}

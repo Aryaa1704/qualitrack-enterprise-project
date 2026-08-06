@@ -7,7 +7,7 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -212,12 +212,20 @@ def _ensure_department_belongs_to_factory(db: Session, factory_id: int, departme
     _get_department_or_404(db, factory_id, department_id)
 
 
-def _pagination(page: int, per_page: int) -> tuple[int, int]:
+def _pagination(page: int, per_page: int | None = None, page_size: int | None = None) -> tuple[int, int]:
     """Normalize pagination inputs."""
 
+    size = page_size if page_size is not None else per_page
     safe_page = max(page, 1)
-    safe_per_page = min(max(per_page, 1), 50)
+    safe_per_page = min(max(size or 10, 1), 50)
     return safe_page, safe_per_page
+
+
+def _sort_clause(sort_map: dict[str, object], sort_by: str | None, sort_order: str | None):
+    """Return a safe SQLAlchemy sort clause for list endpoints."""
+
+    column = sort_map.get((sort_by or "id").strip(), sort_map["id"])
+    return column.desc() if (sort_order or "asc").strip().lower() == "desc" else column.asc()
 
 
 @router.get("/new", response_class=HTMLResponse, include_in_schema=False)
@@ -266,17 +274,27 @@ def list_factories(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
+    search: str | None = None,
+    status_filter: str | None = None,
+    sort_by: str | None = "id",
+    sort_order: str | None = "asc",
     page: int = 1,
-    per_page: int = 10,
+    per_page: int | None = None,
+    page_size: int | None = None,
 ) -> FactoryList | HTMLResponse:
-    """List factories with pagination."""
+    """List factories with standardized search, sorting, and pagination."""
 
-    page, per_page = _pagination(page, per_page)
-    total = db.scalar(select(func.count()).select_from(Factory)) or 0
+    page, per_page = _pagination(page, per_page, page_size)
+    query = select(Factory)
+    if search:
+        term = f"%{search.strip()}%"
+        query = query.where(or_(Factory.name.ilike(term), Factory.code.ilike(term), Factory.location.ilike(term)))
+    if status_filter:
+        query = query.where(Factory.status == _normalize_status(status_filter))
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     pages = max(ceil(total / per_page), 1)
-    factories = list(
-        db.scalars(select(Factory).order_by(Factory.id).offset((page - 1) * per_page).limit(per_page)).all()
-    )
+    sort_map = {"id": Factory.id, "name": Factory.name, "code": Factory.code, "location": Factory.location, "status": Factory.status, "created_at": Factory.created_at}
+    factories = list(db.scalars(query.order_by(_sort_clause(sort_map, sort_by, sort_order), Factory.id).offset((page - 1) * per_page).limit(per_page)).all())
     if _wants_html(request):
         return templates.TemplateResponse(
             "factories/list.html",
@@ -286,8 +304,13 @@ def list_factories(
                 "app_description": settings.app_description,
                 "current_user": current_user,
                 "factories": factories,
+                "search": search or "",
+                "status_filter": status_filter or "",
+                "sort_by": sort_by or "id",
+                "sort_order": sort_order or "asc",
                 "page": page,
                 "per_page": per_page,
+                "page_size": per_page,
                 "total": total,
                 "pages": pages,
             },

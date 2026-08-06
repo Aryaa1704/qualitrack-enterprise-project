@@ -26,8 +26,14 @@ def _wants_html(request: Request) -> bool:
     return "text/html" in request.headers.get("accept", "")
 
 
-def _pagination(page: int, per_page: int) -> tuple[int, int]:
-    return max(page, 1), min(max(per_page, 1), 50)
+def _pagination(page: int, per_page: int | None = None, page_size: int | None = None) -> tuple[int, int]:
+    size = page_size if page_size is not None else per_page
+    return max(page, 1), min(max(size or 10, 1), 50)
+
+
+def _sort_clause(sort_map: dict[str, object], sort_by: str | None, sort_order: str | None):
+    column = sort_map.get((sort_by or "id").strip(), sort_map["id"])
+    return column.desc() if (sort_order or "asc").strip().lower() == "desc" else column.asc()
 
 
 def _normalize_status(value: str | None) -> str:
@@ -96,8 +102,8 @@ async def create_product(request: Request, db: Annotated[Session, Depends(get_db
 
 
 @router.get("", response_model=ProductList)
-def list_products(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, category: str | None = None, status_filter: str | None = None, page: int = 1, per_page: int = 10) -> ProductList | HTMLResponse:
-    page, per_page = _pagination(page, per_page)
+def list_products(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, category: str | None = None, status_filter: str | None = None, sort_by: str | None = "id", sort_order: str | None = "asc", page: int = 1, per_page: int | None = None, page_size: int | None = None) -> ProductList | HTMLResponse:
+    page, per_page = _pagination(page, per_page, page_size)
     query = select(Product)
     if search:
         term = f"%{search.strip()}%"
@@ -108,10 +114,11 @@ def list_products(request: Request, db: Annotated[Session, Depends(get_db)], cur
         query = query.where(Product.status == _normalize_status(status_filter))
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     pages = max(ceil(total / per_page), 1)
-    products = list(db.scalars(query.order_by(Product.id).offset((page - 1) * per_page).limit(per_page)).all())
+    sort_map = {"id": Product.id, "name": Product.name, "category": Product.category, "sku_code": Product.sku_code, "status": Product.status}
+    products = list(db.scalars(query.order_by(_sort_clause(sort_map, sort_by, sort_order), Product.id).offset((page - 1) * per_page).limit(per_page)).all())
     if _wants_html(request):
         categories = list(db.scalars(select(Product.category).distinct().order_by(Product.category)).all())
-        return templates.TemplateResponse("products/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "products": products, "categories": categories, "search": search or "", "category": category or "", "status_filter": status_filter or "", "page": page, "per_page": per_page, "total": total, "pages": pages})
+        return templates.TemplateResponse("products/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "products": products, "categories": categories, "search": search or "", "category": category or "", "status_filter": status_filter or "", "sort_by": sort_by or "id", "sort_order": sort_order or "asc", "page": page, "per_page": per_page, "page_size": per_page, "total": total, "pages": pages})
     return ProductList(items=products, page=page, per_page=per_page, total=total, pages=pages)
 
 

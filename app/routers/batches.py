@@ -27,8 +27,14 @@ def _wants_html(request: Request) -> bool:
     return "text/html" in request.headers.get("accept", "")
 
 
-def _pagination(page: int, per_page: int) -> tuple[int, int]:
-    return max(page, 1), min(max(per_page, 1), 50)
+def _pagination(page: int, per_page: int | None = None, page_size: int | None = None) -> tuple[int, int]:
+    size = page_size if page_size is not None else per_page
+    return max(page, 1), min(max(size or 10, 1), 50)
+
+
+def _sort_clause(sort_map: dict[str, object], sort_by: str | None, sort_order: str | None):
+    column = sort_map.get((sort_by or "manufacturing_date").strip(), sort_map["manufacturing_date"])
+    return column.desc() if (sort_order or "desc").strip().lower() == "desc" else column.asc()
 
 
 def _normalize_status(value: str | None) -> str:
@@ -133,8 +139,8 @@ async def create_batch(request: Request, db: Annotated[Session, Depends(get_db)]
 
 
 @router.get("", response_model=BatchList)
-def list_batches(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, product_id: int | None = None, production_line_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, page: int = 1, per_page: int = 10) -> BatchList | HTMLResponse:
-    page, per_page = _pagination(page, per_page)
+def list_batches(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, product_id: int | None = None, production_line_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, sort_by: str | None = "manufacturing_date", sort_order: str | None = "desc", page: int = 1, per_page: int | None = None, page_size: int | None = None) -> BatchList | HTMLResponse:
+    page, per_page = _pagination(page, per_page, page_size)
     query = select(Batch)
     if search:
         term = f"%{search.strip()}%"
@@ -151,9 +157,10 @@ def list_batches(request: Request, db: Annotated[Session, Depends(get_db)], curr
         query = query.where(Batch.manufacturing_date <= end_date)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     pages = max(ceil(total / per_page), 1)
-    batches = list(db.scalars(query.order_by(Batch.manufacturing_date.desc(), Batch.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
+    sort_map = {"id": Batch.id, "batch_number": Batch.batch_number, "manufacturing_date": Batch.manufacturing_date, "expiry_date": Batch.expiry_date, "quantity": Batch.quantity, "status": Batch.status}
+    batches = list(db.scalars(query.order_by(_sort_clause(sort_map, sort_by, sort_order), Batch.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
     if _wants_html(request):
-        return templates.TemplateResponse("batches/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batches": batches, "search": search or "", "product_id": product_id or "", "production_line_id": production_line_id or "", "status_filter": status_filter or "", "start_date": start_date or "", "end_date": end_date or "", "page": page, "per_page": per_page, "total": total, "pages": pages, **_form_options(db)})
+        return templates.TemplateResponse("batches/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batches": batches, "search": search or "", "product_id": product_id or "", "production_line_id": production_line_id or "", "status_filter": status_filter or "", "start_date": start_date or "", "end_date": end_date or "", "sort_by": sort_by or "manufacturing_date", "sort_order": sort_order or "desc", "page": page, "per_page": per_page, "page_size": per_page, "total": total, "pages": pages, **_form_options(db)})
     return BatchList(items=batches, page=page, per_page=per_page, total=total, pages=pages)
 
 

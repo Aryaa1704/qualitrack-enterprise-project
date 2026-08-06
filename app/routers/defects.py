@@ -8,7 +8,7 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -30,8 +30,14 @@ def _wants_html(request: Request) -> bool:
     return "text/html" in request.headers.get("accept", "")
 
 
-def _pagination(page: int, per_page: int) -> tuple[int, int]:
-    return max(page, 1), min(max(per_page, 1), 50)
+def _pagination(page: int, per_page: int | None = None, page_size: int | None = None) -> tuple[int, int]:
+    size = page_size if page_size is not None else per_page
+    return max(page, 1), min(max(size or 10, 1), 50)
+
+
+def _sort_clause(sort_map: dict[str, object], sort_by: str | None, sort_order: str | None):
+    column = sort_map.get((sort_by or "created_at").strip(), sort_map["created_at"])
+    return column.desc() if (sort_order or "desc").strip().lower() == "desc" else column.asc()
 
 
 def _normalize_choice(value: object, choices: tuple[str, ...], field: str) -> str:
@@ -102,8 +108,11 @@ def _apply_resolution(defect: Defect, new_status: str) -> None:
         defect.resolved_date = None
 
 
-def _defect_query(defect_type: str | None, severity: str | None, status_filter: str | None, start_date: date | None, end_date: date | None):
+def _defect_query(defect_type: str | None, severity: str | None, status_filter: str | None, start_date: date | None, end_date: date | None, search: str | None = None):
     query = select(Defect)
+    if search:
+        term = f"%{search.strip()}%"
+        query = query.where(or_(Defect.description.ilike(term), Defect.defect_type.ilike(term), Defect.severity.ilike(term), Defect.status.ilike(term)))
     if defect_type:
         query = query.where(Defect.defect_type == _normalize_choice(defect_type, DEFECT_TYPES, "defect type"))
     if severity:
@@ -143,14 +152,15 @@ async def create_defect(request: Request, db: Annotated[Session, Depends(get_db)
 
 
 @router.get("", response_model=DefectList)
-def list_defects(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], defect_type: str | None = None, severity: str | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, page: int = 1, per_page: int = 10) -> DefectList | HTMLResponse:
-    page, per_page = _pagination(page, per_page)
-    query = _defect_query(defect_type, severity, status_filter, start_date, end_date)
+def list_defects(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, defect_type: str | None = None, severity: str | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, sort_by: str | None = "created_at", sort_order: str | None = "desc", page: int = 1, per_page: int | None = None, page_size: int | None = None) -> DefectList | HTMLResponse:
+    page, per_page = _pagination(page, per_page, page_size)
+    query = _defect_query(defect_type, severity, status_filter, start_date, end_date, search)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     pages = max(ceil(total / per_page), 1)
-    defects = list(db.scalars(query.order_by(Defect.created_at.desc(), Defect.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
+    sort_map = {"id": Defect.id, "created_at": Defect.created_at, "defect_type": Defect.defect_type, "severity": Defect.severity, "status": Defect.status, "resolved_date": Defect.resolved_date}
+    defects = list(db.scalars(query.order_by(_sort_clause(sort_map, sort_by, sort_order), Defect.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
     if _wants_html(request):
-        return templates.TemplateResponse("defects/list.html", _template_context(request, current_user, defects=defects, defect_type=defect_type or "", severity=severity or "", status_filter=status_filter or "", start_date=start_date or "", end_date=end_date or "", page=page, per_page=per_page, total=total, pages=pages))
+        return templates.TemplateResponse("defects/list.html", _template_context(request, current_user, defects=defects, search=search or "", defect_type=defect_type or "", severity=severity or "", status_filter=status_filter or "", start_date=start_date or "", end_date=end_date or "", sort_by=sort_by or "created_at", sort_order=sort_order or "desc", page=page, per_page=per_page, page_size=per_page, total=total, pages=pages))
     return DefectList(items=defects, page=page, per_page=per_page, total=total, pages=pages)
 
 
