@@ -13,6 +13,7 @@
         <a class="brand" href="/">{{ app_name }}</a>
         <nav class="site-nav" aria-label="Primary navigation">
           {% if current_user %}
+            <a class="nav-link" href="/dashboard">Dashboard</a>
             <a class="nav-link" href="/factories">Factories</a>
             <a class="nav-link" href="/products">Products</a>
             <a class="nav-link" href="/batches">Batches</a>

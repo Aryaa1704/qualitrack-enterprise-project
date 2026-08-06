@@ -791,3 +791,88 @@ def test_defect_crud_filters_stats_resolution_and_html_flow() -> None:
 
     delete_response = auth_client.delete(f"/defects/{defect['id']}")
     assert delete_response.status_code == 200
+
+
+def test_openapi_schema_includes_dashboard_endpoints() -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert "/dashboard/summary" in paths
+    assert "/dashboard/trend" in paths
+    assert "/dashboard/top-defects" in paths
+    assert "/dashboard/top-inspector" in paths
+    assert "get" in paths["/dashboard/summary"]
+    assert "get" in paths["/dashboard/trend"]
+    assert "get" in paths["/dashboard/top-defects"]
+    assert "get" in paths["/dashboard/top-inspector"]
+
+
+def test_dashboard_apis_return_live_aggregated_data_and_update() -> None:
+    auth_client = _authenticated_client()
+    batch = _create_batch(auth_client, f"DASH-{uuid4().hex[:6]}")
+    pending_batch = _create_batch(auth_client, f"DASH-PENDING-{uuid4().hex[:6]}")
+
+    dashboard_page = auth_client.get("/dashboard", headers={"accept": "text/html"})
+    assert dashboard_page.status_code == 200
+    assert "Quality Dashboard" in dashboard_page.text
+    assert pending_batch["batch_number"] not in dashboard_page.text
+
+    pass_response = auth_client.post("/inspections", json=_inspection_payload(batch["id"], inspection_score=96))
+    fail_response = auth_client.post(
+        "/inspections",
+        json=_inspection_payload(batch["id"], scratch="fail", remarks="Dashboard fail sample", inspection_score=71),
+    )
+    assert pass_response.status_code == 201
+    assert fail_response.status_code == 201
+    fail_inspection = fail_response.json()
+
+    defect_response = auth_client.post(
+        "/defects",
+        json={
+            "inspection_id": fail_inspection["id"],
+            "defect_type": "Paint Issue",
+            "severity": "High",
+            "description": "Paint chip visible on dashboard sample",
+            "status": "Open",
+        },
+    )
+    assert defect_response.status_code == 201
+
+    summary_response = auth_client.get("/dashboard/summary")
+    trend_response = auth_client.get("/dashboard/trend")
+    defects_response = auth_client.get("/dashboard/top-defects")
+    inspectors_response = auth_client.get("/dashboard/top-inspector")
+
+    assert summary_response.status_code == 200
+    assert trend_response.status_code == 200
+    assert defects_response.status_code == 200
+    assert inspectors_response.status_code == 200
+
+    summary = summary_response.json()
+    assert summary["today_inspections"] >= 2
+    assert summary["pass_percent"] > 0
+    assert summary["fail_percent"] > 0
+    assert summary["pending_inspections"] >= 1
+    assert summary["critical_defects"] >= 1
+
+    trend = trend_response.json()
+    assert len(trend["labels"]) == 30
+    assert len(trend["counts"]) == 30
+    assert sum(trend["counts"]) >= 2
+
+    defects = defects_response.json()
+    assert "Paint Issue" in defects["labels"]
+    paint_index = defects["labels"].index("Paint Issue")
+    assert defects["counts"][paint_index] >= 1
+
+    inspectors = inspectors_response.json()
+    me_response = auth_client.get("/auth/me")
+    assert me_response.status_code == 200
+    assert me_response.json()["username"] in inspectors["labels"]
+
+    before_count = summary["today_inspections"]
+    new_response = auth_client.post("/inspections", json=_inspection_payload(batch["id"], inspection_score=99))
+    assert new_response.status_code == 201
+    refreshed_summary = auth_client.get("/dashboard/summary").json()
+    assert refreshed_summary["today_inspections"] == before_count + 1
