@@ -402,3 +402,177 @@ def test_machine_filters_by_status_line_and_factory() -> None:
     factory_filter = auth_client.get(f"{first_url}?factory_filter_id={factory['id']}")
     assert factory_filter.status_code == 200
     assert factory_filter.json()["total"] == 1
+
+
+def _create_line(auth_client: TestClient) -> dict:
+    factory = _create_factory(auth_client)
+    response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines",
+        json={"name": "Phase 5 Line", "code": f"P5L-{uuid4().hex[:6]}", "status": "active"},
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+def _create_product(auth_client: TestClient, suffix: str | None = None) -> dict:
+    unique = suffix or uuid4().hex[:8]
+    response = auth_client.post(
+        "/products",
+        json={"name": f"Widget {unique}", "category": "Widgets", "sku_code": f"SKU-{unique}", "status": "active"},
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+def test_openapi_schema_includes_product_and_batch_endpoints() -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert "/products" in paths
+    assert "/products/{product_id}" in paths
+    assert "/batches" in paths
+    assert "/batches/{batch_id}" in paths
+    assert {"post", "get"}.issubset(paths["/products"])
+    assert {"get", "put", "delete"}.issubset(paths["/products/{product_id}"])
+    assert {"post", "get"}.issubset(paths["/batches"])
+    assert {"get", "put", "delete"}.issubset(paths["/batches/{batch_id}"])
+
+
+def test_product_crud_search_filter_pagination_and_batch_history() -> None:
+    auth_client = _authenticated_client()
+    unique = uuid4().hex[:8]
+    product = _create_product(auth_client, unique)
+
+    duplicate_response = auth_client.post(
+        "/products",
+        json={"name": "Duplicate", "category": "Widgets", "sku_code": product["sku_code"]},
+    )
+    assert duplicate_response.status_code == 409
+
+    read_response = auth_client.get(f"/products/{product['id']}")
+    assert read_response.status_code == 200
+    assert read_response.json()["sku_code"] == product["sku_code"]
+
+    update_response = auth_client.put(f"/products/{product['id']}", json={"name": "Updated Widget", "category": "Updated"})
+    assert update_response.status_code == 200
+    assert update_response.json()["name"] == "Updated Widget"
+
+    for index in range(11):
+        response = auth_client.post(
+            "/products",
+            json={"name": f"Gadget {unique} {index}", "category": "Gadgets", "sku_code": f"GAD-{unique}-{index}"},
+        )
+        assert response.status_code == 201
+
+    list_response = auth_client.get(f"/products?search=Gadget {unique}&category=Gadgets&status_filter=active&page=1&per_page=5")
+    assert list_response.status_code == 200
+    assert list_response.json()["pages"] >= 2
+    assert len(list_response.json()["items"]) == 5
+
+    line = _create_line(auth_client)
+    batch_response = auth_client.post(
+        "/batches",
+        json={
+            "product_id": product["id"],
+            "production_line_id": line["id"],
+            "batch_number": f"BATCH-HIST-{unique}",
+            "manufacturing_date": "2026-08-01",
+            "expiry_date": "2026-09-01",
+            "quantity": 100,
+            "status": "planned",
+        },
+    )
+    assert batch_response.status_code == 201
+    history_response = auth_client.get(f"/products/{product['id']}", headers={"accept": "text/html"})
+    assert history_response.status_code == 200
+    assert f"BATCH-HIST-{unique}" in history_response.text
+
+    delete_response = auth_client.delete(f"/products/{product['id']}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["status"] == "inactive"
+
+
+def test_batch_crud_relationship_validation_filter_and_pagination() -> None:
+    auth_client = _authenticated_client()
+    unique = uuid4().hex[:8]
+    product = _create_product(auth_client, unique)
+    line = _create_line(auth_client)
+
+    invalid_date_response = auth_client.post(
+        "/batches",
+        json={
+            "product_id": product["id"],
+            "production_line_id": line["id"],
+            "batch_number": f"BAD-DATE-{unique}",
+            "manufacturing_date": "2026-09-01",
+            "expiry_date": "2026-08-01",
+            "quantity": 100,
+        },
+    )
+    assert invalid_date_response.status_code == 422
+
+    create_response = auth_client.post(
+        "/batches",
+        json={
+            "product_id": product["id"],
+            "production_line_id": line["id"],
+            "batch_number": f"BATCH-{unique}-0",
+            "manufacturing_date": "2026-08-01",
+            "expiry_date": "2026-09-01",
+            "quantity": 100,
+            "status": "planned",
+        },
+    )
+    assert create_response.status_code == 201
+    batch = create_response.json()
+    assert batch["product_id"] == product["id"]
+    assert batch["production_line_id"] == line["id"]
+
+    duplicate_response = auth_client.post(
+        "/batches",
+        json={
+            "product_id": product["id"],
+            "production_line_id": line["id"],
+            "batch_number": batch["batch_number"],
+            "manufacturing_date": "2026-08-02",
+            "expiry_date": "2026-09-02",
+            "quantity": 50,
+        },
+    )
+    assert duplicate_response.status_code == 409
+
+    read_response = auth_client.get(f"/batches/{batch['id']}")
+    assert read_response.status_code == 200
+    assert read_response.json()["batch_number"] == batch["batch_number"]
+
+    update_response = auth_client.put(f"/batches/{batch['id']}", json={"quantity": 125, "status": "in_progress"})
+    assert update_response.status_code == 200
+    assert update_response.json()["quantity"] == 125
+    assert update_response.json()["status"] == "in_progress"
+
+    for index in range(1, 12):
+        response = auth_client.post(
+            "/batches",
+            json={
+                "product_id": product["id"],
+                "production_line_id": line["id"],
+                "batch_number": f"BATCH-{unique}-{index}",
+                "manufacturing_date": f"2026-08-{index + 1:02d}",
+                "expiry_date": f"2026-09-{index + 1:02d}",
+                "quantity": 100 + index,
+                "status": "completed",
+            },
+        )
+        assert response.status_code == 201
+
+    filtered_response = auth_client.get(
+        f"/batches?search=BATCH-{unique}&product_id={product['id']}&production_line_id={line['id']}&status_filter=completed&start_date=2026-08-02&end_date=2026-08-12&page=1&per_page=5"
+    )
+    assert filtered_response.status_code == 200
+    assert filtered_response.json()["pages"] >= 2
+    assert len(filtered_response.json()["items"]) == 5
+
+    delete_response = auth_client.delete(f"/batches/{batch['id']}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["status"] == "inactive"

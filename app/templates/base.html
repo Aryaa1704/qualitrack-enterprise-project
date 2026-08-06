@@ -14,6 +14,8 @@
         <nav class="site-nav" aria-label="Primary navigation">
           {% if current_user %}
             <a class="nav-link" href="/factories">Factories</a>
+            <a class="nav-link" href="/products">Products</a>
+            <a class="nav-link" href="/batches">Batches</a>
             <a class="nav-link" href="/auth/profile">{{ current_user.username }}</a>
             <form class="nav-form" action="/auth/logout" method="post">
               <button class="nav-button" type="submit">Logout</button>
