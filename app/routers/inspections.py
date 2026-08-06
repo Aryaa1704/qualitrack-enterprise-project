@@ -28,8 +28,9 @@ def _wants_html(request: Request) -> bool:
     return "text/html" in request.headers.get("accept", "")
 
 
-def _pagination(page: int, per_page: int) -> tuple[int, int]:
-    return max(page, 1), min(max(per_page, 1), 50)
+def _pagination(page: int, per_page: int, page_size: int | None = None) -> tuple[int, int]:
+    effective_size = page_size if page_size is not None else per_page
+    return max(page, 1), min(max(effective_size, 1), 50)
 
 
 def _normalize_check(value: object) -> str:
@@ -151,25 +152,29 @@ async def create_inspection(request: Request, db: Annotated[Session, Depends(get
 
 
 @router.get("", response_model=InspectionList)
-def list_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, page: int = 1, per_page: int = 10) -> InspectionList | HTMLResponse:
-    page, per_page = _pagination(page, per_page)
+def list_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, sort_by: str = "inspection_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> InspectionList | HTMLResponse:
+    page, per_page = _pagination(page, per_page, page_size)
     query = _inspection_query(search, product_id, batch_id, inspector_id, status_filter, start_date, end_date)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     pages = max(ceil(total / per_page), 1)
-    inspections = list(db.scalars(query.order_by(Inspection.inspection_date.desc(), Inspection.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
+    sort_columns = {"id": Inspection.id, "inspection_date": Inspection.inspection_date, "overall_status": Inspection.overall_status, "inspection_score": Inspection.inspection_score, "batch_id": Inspection.batch_id, "inspector_id": Inspection.inspector_id}
+    sort_column = sort_columns.get(sort_by, Inspection.inspection_date)
+    direction = sort_order.lower()
+    order_by = sort_column.asc() if direction == "asc" else sort_column.desc()
+    inspections = list(db.scalars(query.order_by(order_by, Inspection.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
     if _wants_html(request):
-        return templates.TemplateResponse("inspections/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspections": inspections, "search": search or "", "product_id": product_id or "", "batch_id": batch_id or "", "inspector_id": inspector_id or "", "status_filter": status_filter or "", "start_date": start_date or "", "end_date": end_date or "", "page": page, "per_page": per_page, "total": total, "pages": pages, **_form_options(db)})
+        return templates.TemplateResponse("inspections/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspections": inspections, "search": search or "", "product_id": product_id or "", "batch_id": batch_id or "", "inspector_id": inspector_id or "", "status_filter": status_filter or "", "start_date": start_date or "", "end_date": end_date or "", "page": page, "per_page": per_page, "total": total, "pages": pages, "sort_by": sort_by, "sort_order": direction, "page_size": per_page, **_form_options(db)})
     return InspectionList(items=inspections, page=page, per_page=per_page, total=total, pages=pages)
 
 
 @router.get("/search", response_model=InspectionList)
-def search_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], q: str | None = None, status_filter: str | None = None, page: int = 1, per_page: int = 10) -> InspectionList | HTMLResponse:
-    return list_inspections(request, db, current_user, search=q, status_filter=status_filter, page=page, per_page=per_page)
+def search_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], q: str | None = None, status_filter: str | None = None, sort_by: str = "inspection_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> InspectionList | HTMLResponse:
+    return list_inspections(request, db, current_user, search=q, status_filter=status_filter, sort_by=sort_by, sort_order=sort_order, page=page, page_size=page_size, per_page=per_page)
 
 
 @router.get("/filter", response_model=InspectionList)
-def filter_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, page: int = 1, per_page: int = 10) -> InspectionList | HTMLResponse:
-    return list_inspections(request, db, current_user, product_id=product_id, batch_id=batch_id, inspector_id=inspector_id, status_filter=status_filter, start_date=start_date, end_date=end_date, page=page, per_page=per_page)
+def filter_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, sort_by: str = "inspection_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> InspectionList | HTMLResponse:
+    return list_inspections(request, db, current_user, product_id=product_id, batch_id=batch_id, inspector_id=inspector_id, status_filter=status_filter, start_date=start_date, end_date=end_date, sort_by=sort_by, sort_order=sort_order, page=page, page_size=page_size, per_page=per_page)
 
 
 @router.get("/batch/{batch_id}/history", response_model=list[InspectionRead])

@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Search | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page-header" aria-labelledby="search-title"><div><p class="eyebrow">Global search</p><h1 id="search-title">Search results</h1><p class="section-copy">Grouped results for “{{ q }}” across products, batches, inspections, and defects.</p></div></section>
+<div class="search-results-grid">{% for group, items in groups.items() %}<section class="info-card"><h2>{{ group|title }}</h2>{% if items %}<ul class="result-list">{% for item in items %}<li><a href="{{ item.url }}">{{ item.label }}</a><span>{{ item.description }}</span></li>{% endfor %}</ul>{% else %}<p class="empty-state">No {{ group }} found.</p>{% endif %}</section>{% endfor %}</div>
+{% endblock %}

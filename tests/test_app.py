@@ -965,3 +965,51 @@ def test_reports_filter_summaries_and_csv_exports() -> None:
     batch_csv = auth_client.get("/reports/batch/export")
     assert batch_csv.status_code == 200
     assert batch["batch_number"] in batch_csv.text
+
+
+def test_openapi_includes_global_search_without_duplicate_routes() -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert "/search" in paths
+    route_keys = [(tuple(sorted(route.methods or [])), route.path) for route in app.routes if hasattr(route, "methods")]
+    assert len(route_keys) == len(set(route_keys))
+
+
+def test_standard_list_query_parameters_and_global_search() -> None:
+    auth_client = _authenticated_client()
+    unique = uuid4().hex[:8]
+    factory_response = auth_client.post("/factories", json={"name": f"Search Plant {unique}", "code": f"SP-{unique}", "location": "Akron, OH"})
+    assert factory_response.status_code == 201
+    factory = factory_response.json()
+    line_response = auth_client.post(f"/factories/{factory['id']}/production-lines", json={"name": f"Search Line {unique}", "code": f"SL-{unique}"})
+    assert line_response.status_code == 201
+    product_response = auth_client.post("/products", json={"name": f"Search Widget {unique}", "category": "Widgets", "sku_code": f"SKU-{unique}"})
+    assert product_response.status_code == 201
+    product = product_response.json()
+    batch_response = auth_client.post("/batches", json={"product_id": product["id"], "production_line_id": line_response.json()["id"], "batch_number": f"B-{unique}", "manufacturing_date": "2026-08-01", "expiry_date": "2026-09-01", "quantity": 12})
+    assert batch_response.status_code == 201
+    batch = batch_response.json()
+    inspection_response = auth_client.post("/inspections", json={"batch_id": batch["id"], "scratch": "fail", "color": "pass", "weight_actual": 10, "weight_spec": 10, "dimensions_actual": "1x1", "dimensions_spec": "1x1", "packaging": "pass", "functional_test": "pass", "inspection_score": 80})
+    assert inspection_response.status_code == 201
+    defect_response = auth_client.post("/defects", json={"inspection_id": inspection_response.json()["id"], "defect_type": "Scratch", "severity": "High", "description": f"Search defect {unique}"})
+    assert defect_response.status_code == 201
+
+    checks = ["/factories", "/products", "/batches", "/inspections", "/defects"]
+    for path in checks:
+        response = auth_client.get(f"{path}?search={unique}&sort_by=id&sort_order=desc&page=1&page_size=1")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["page"] == 1
+        assert data["per_page"] == 1
+        assert data["total"] >= 1
+
+    search_response = auth_client.get(f"/search?q={unique}")
+    assert search_response.status_code == 200
+    grouped = search_response.json()
+    assert all(group in grouped for group in ["products", "batches", "inspections", "defects"])
+    assert grouped["products"]
+    assert grouped["batches"]
+    assert grouped["inspections"]
+    assert grouped["defects"]

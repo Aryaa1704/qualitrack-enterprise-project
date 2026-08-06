@@ -27,8 +27,9 @@ def _wants_html(request: Request) -> bool:
     return "text/html" in request.headers.get("accept", "")
 
 
-def _pagination(page: int, per_page: int) -> tuple[int, int]:
-    return max(page, 1), min(max(per_page, 1), 50)
+def _pagination(page: int, per_page: int, page_size: int | None = None) -> tuple[int, int]:
+    effective_size = page_size if page_size is not None else per_page
+    return max(page, 1), min(max(effective_size, 1), 50)
 
 
 def _normalize_status(value: str | None) -> str:
@@ -133,8 +134,8 @@ async def create_batch(request: Request, db: Annotated[Session, Depends(get_db)]
 
 
 @router.get("", response_model=BatchList)
-def list_batches(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, product_id: int | None = None, production_line_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, page: int = 1, per_page: int = 10) -> BatchList | HTMLResponse:
-    page, per_page = _pagination(page, per_page)
+def list_batches(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, product_id: int | None = None, production_line_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, sort_by: str = "manufacturing_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> BatchList | HTMLResponse:
+    page, per_page = _pagination(page, per_page, page_size)
     query = select(Batch)
     if search:
         term = f"%{search.strip()}%"
@@ -151,9 +152,13 @@ def list_batches(request: Request, db: Annotated[Session, Depends(get_db)], curr
         query = query.where(Batch.manufacturing_date <= end_date)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     pages = max(ceil(total / per_page), 1)
-    batches = list(db.scalars(query.order_by(Batch.manufacturing_date.desc(), Batch.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
+    sort_columns = {"id": Batch.id, "batch_number": Batch.batch_number, "manufacturing_date": Batch.manufacturing_date, "expiry_date": Batch.expiry_date, "quantity": Batch.quantity, "status": Batch.status, "created_at": Batch.created_at}
+    sort_column = sort_columns.get(sort_by, Batch.manufacturing_date)
+    direction = sort_order.lower()
+    order_by = sort_column.asc() if direction == "asc" else sort_column.desc()
+    batches = list(db.scalars(query.order_by(order_by, Batch.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
     if _wants_html(request):
-        return templates.TemplateResponse("batches/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batches": batches, "search": search or "", "product_id": product_id or "", "production_line_id": production_line_id or "", "status_filter": status_filter or "", "start_date": start_date or "", "end_date": end_date or "", "page": page, "per_page": per_page, "total": total, "pages": pages, **_form_options(db)})
+        return templates.TemplateResponse("batches/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batches": batches, "search": search or "", "product_id": product_id or "", "production_line_id": production_line_id or "", "status_filter": status_filter or "", "start_date": start_date or "", "end_date": end_date or "", "page": page, "per_page": per_page, "total": total, "pages": pages, "sort_by": sort_by, "sort_order": direction, "page_size": per_page, **_form_options(db)})
     return BatchList(items=batches, page=page, per_page=per_page, total=total, pages=pages)
 
 
