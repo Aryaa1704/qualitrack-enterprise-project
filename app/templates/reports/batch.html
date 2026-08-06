@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Batch Report | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page-header"><div><p class="eyebrow">Reports</p><h1>Batch Report</h1><p class="section-copy">Inspection history and defect counts summarized by batch.</p></div><a class="button button-secondary" href="/reports/batch/export">Export CSV</a></section>
+<section class="dashboard-summary"><article class="metric-card"><span>Batches</span><strong>{{ summary.batches }}</strong></article><article class="metric-card"><span>Inspections</span><strong>{{ summary.inspection_count }}</strong></article><article class="metric-card metric-card-alert"><span>Defects</span><strong>{{ summary.defect_count }}</strong></article></section>
+<div class="table-card"><table class="data-table"><thead><tr><th>Batch</th><th>Product</th><th>Inspections</th><th>Defects</th></tr></thead><tbody>{% for row in items %}<tr><td>{{ row.batch_number }}</td><td>{{ row.product_name }}</td><td>{{ row.inspection_count }}</td><td>{{ row.defect_count }}</td></tr>{% else %}<tr><td colspan="4">No batch quality history yet.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}
