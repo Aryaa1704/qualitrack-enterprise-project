@@ -263,3 +263,61 @@ class BatchList(BaseModel):
     per_page: int
     total: int
     pages: int
+
+
+class InspectionBase(BaseModel):
+    """Shared inspection fields submitted by inspectors."""
+
+    batch_id: int
+    scratch: str = Field(pattern="^(pass|fail)$")
+    color: str = Field(pattern="^(pass|fail)$")
+    weight_actual: float
+    weight_spec: float
+    dimensions_actual: str = Field(min_length=1, max_length=120)
+    dimensions_spec: str = Field(min_length=1, max_length=120)
+    packaging: str = Field(pattern="^(pass|fail)$")
+    functional_test: str = Field(pattern="^(pass|fail)$")
+    overall_status: str | None = Field(default=None, pattern="^(Pass|Fail)$")
+    inspection_score: int = Field(ge=0, le=100)
+    remarks: str = Field(default="", max_length=2000)
+
+
+class InspectionCreate(InspectionBase):
+    """Data required to create an inspection."""
+
+
+class InspectionUpdate(BaseModel):
+    """Data allowed when updating an inspection."""
+
+    batch_id: int | None = None
+    scratch: str | None = Field(default=None, pattern="^(pass|fail)$")
+    color: str | None = Field(default=None, pattern="^(pass|fail)$")
+    weight_actual: float | None = None
+    weight_spec: float | None = None
+    dimensions_actual: str | None = Field(default=None, min_length=1, max_length=120)
+    dimensions_spec: str | None = Field(default=None, min_length=1, max_length=120)
+    packaging: str | None = Field(default=None, pattern="^(pass|fail)$")
+    functional_test: str | None = Field(default=None, pattern="^(pass|fail)$")
+    overall_status: str | None = Field(default=None, pattern="^(Pass|Fail)$")
+    inspection_score: int | None = Field(default=None, ge=0, le=100)
+    remarks: str | None = Field(default=None, max_length=2000)
+
+
+class InspectionRead(InspectionBase):
+    """Inspection details returned by the API."""
+
+    id: int
+    inspector_id: int
+    inspection_date: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InspectionList(BaseModel):
+    """Paginated inspection list response."""
+
+    items: list[InspectionRead]
+    page: int
+    per_page: int
+    total: int
+    pages: int
