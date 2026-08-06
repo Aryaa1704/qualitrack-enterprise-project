@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 import csv
 
 from app.core.config import get_settings
+from app.core.rbac import ROLE_ADMIN, ROLE_INSPECTOR, ROLE_QUALITY_MANAGER, ensure_batch_access, ensure_defect_access, ensure_inspection_access, require_role, rbac_template_context
 from app.database.session import get_db
 from app.models.factory import Batch, Defect, Factory, Inspection, Product, ProductionLine
 from app.models.user import User
@@ -20,6 +21,7 @@ from app.routers.auth import get_current_user
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals.update(rbac_template_context())
 settings = get_settings()
 
 
@@ -112,12 +114,12 @@ def _batch_rows(db: Session) -> list[dict[str, object]]:
 
 
 @router.get("", response_class=HTMLResponse, include_in_schema=False)
-def reports_page(request: Request, current_user: Annotated[User, Depends(get_current_user)]) -> HTMLResponse:
+def reports_page(request: Request, current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER))]) -> HTMLResponse:
     return templates.TemplateResponse("reports/index.html", _report_context(request, current_user))
 
 
 @router.get("/inspection", response_model=None)
-def inspection_report(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, page: int = 1, per_page: int = 10) -> dict[str, object] | HTMLResponse:
+def inspection_report(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER))], product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, page: int = 1, per_page: int = 10) -> dict[str, object] | HTMLResponse:
     data = _inspection_payload(db, product_id, batch_id, inspector_id, status_filter, start_date, end_date, page, per_page)
     if "text/html" in request.headers.get("accept", ""):
         return templates.TemplateResponse("reports/inspection.html", _report_context(request, current_user, **data, products=list(db.scalars(select(Product).order_by(Product.name)).all()), batches=list(db.scalars(select(Batch).order_by(Batch.batch_number)).all()), inspectors=list(db.scalars(select(User).order_by(User.username)).all()), product_id=product_id or "", batch_id=batch_id or "", inspector_id=inspector_id or "", status_filter=status_filter or "", start_date=start_date or "", end_date=end_date or ""))
@@ -125,14 +127,14 @@ def inspection_report(request: Request, db: Annotated[Session, Depends(get_db)],
 
 
 @router.get("/inspection/export")
-def inspection_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None) -> StreamingResponse:
+def inspection_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER))], product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None) -> StreamingResponse:
     inspections = list(db.scalars(_inspection_query(product_id, batch_id, inspector_id, status_filter, start_date, end_date).order_by(Inspection.inspection_date.desc(), Inspection.id.desc())).all())
     rows = [[item.id, item.inspection_date, item.batch.batch_number, item.batch.product.name, item.inspector.username, item.overall_status, item.inspection_score] for item in inspections]
     return _csv_response("inspection-report.csv", ["Inspection ID", "Date", "Batch", "Product", "Inspector", "Status", "Score"], rows)
 
 
 @router.get("/defect", response_model=None)
-def defect_report(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], defect_type: str | None = None, severity: str | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, page: int = 1, per_page: int = 10) -> dict[str, object] | HTMLResponse:
+def defect_report(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER))], defect_type: str | None = None, severity: str | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, page: int = 1, per_page: int = 10) -> dict[str, object] | HTMLResponse:
     data = _defect_payload(db, defect_type, severity, status_filter, start_date, end_date, page, per_page)
     if "text/html" in request.headers.get("accept", ""):
         return templates.TemplateResponse("reports/defect.html", _report_context(request, current_user, **data, defect_type=defect_type or "", severity=severity or "", status_filter=status_filter or "", start_date=start_date or "", end_date=end_date or ""))
@@ -140,14 +142,14 @@ def defect_report(request: Request, db: Annotated[Session, Depends(get_db)], cur
 
 
 @router.get("/defect/export")
-def defect_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], defect_type: str | None = None, severity: str | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None) -> StreamingResponse:
+def defect_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER))], defect_type: str | None = None, severity: str | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None) -> StreamingResponse:
     defects = list(db.scalars(_defect_query(defect_type, severity, status_filter, start_date, end_date).order_by(Defect.created_at.desc(), Defect.id.desc())).all())
     rows = [[item.id, item.created_at, item.inspection_id, item.defect_type, item.severity, item.status, item.description] for item in defects]
     return _csv_response("defect-report.csv", ["Defect ID", "Created", "Inspection ID", "Type", "Severity", "Status", "Description"], rows)
 
 
 @router.get("/factory", response_model=None)
-def factory_report(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> dict[str, object] | HTMLResponse:
+def factory_report(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER))]) -> dict[str, object] | HTMLResponse:
     rows = _factory_rows(db)
     data = {"items": rows, "summary": {"factories": len(rows), "pass_count": sum(int(row["pass_count"]) for row in rows), "fail_count": sum(int(row["fail_count"]) for row in rows)}}
     if "text/html" in request.headers.get("accept", ""):
@@ -156,13 +158,13 @@ def factory_report(request: Request, db: Annotated[Session, Depends(get_db)], cu
 
 
 @router.get("/factory/export")
-def factory_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> StreamingResponse:
+def factory_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER))]) -> StreamingResponse:
     rows = [[row["factory_id"], row["factory_name"], row["factory_code"], row["total_inspections"], row["pass_count"], row["fail_count"]] for row in _factory_rows(db)]
     return _csv_response("factory-report.csv", ["Factory ID", "Factory", "Code", "Total Inspections", "Pass", "Fail"], rows)
 
 
 @router.get("/batch", response_model=None)
-def batch_report(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> dict[str, object] | HTMLResponse:
+def batch_report(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER))]) -> dict[str, object] | HTMLResponse:
     rows = _batch_rows(db)
     data = {"items": rows, "summary": {"batches": len(rows), "inspection_count": sum(int(row["inspection_count"]) for row in rows), "defect_count": sum(int(row["defect_count"]) for row in rows)}}
     if "text/html" in request.headers.get("accept", ""):
@@ -171,6 +173,6 @@ def batch_report(request: Request, db: Annotated[Session, Depends(get_db)], curr
 
 
 @router.get("/batch/export")
-def batch_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> StreamingResponse:
+def batch_report_export(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER))]) -> StreamingResponse:
     rows = [[row["batch_id"], row["batch_number"], row["product_name"], row["inspection_count"], row["defect_count"]] for row in _batch_rows(db)]
     return _csv_response("batch-report.csv", ["Batch ID", "Batch", "Product", "Inspections", "Defects"], rows)

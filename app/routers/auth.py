@@ -12,6 +12,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.rbac import rbac_template_context
 from app.database.session import get_db
 from app.models.user import User
 from app.schemas.user import Token, UserRead
@@ -19,6 +20,7 @@ from app.services.auth import create_access_token, decode_access_token, get_pass
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals.update(rbac_template_context())
 settings = get_settings()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 

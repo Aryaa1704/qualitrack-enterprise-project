@@ -207,3 +207,13 @@ The authenticated dashboard page uses Chart.js and client-side `fetch()` calls s
 - `GET /dashboard/trend` returns daily inspection counts for the last 30 days.
 - `GET /dashboard/top-defects` returns defect counts grouped by defect type for charting.
 - `GET /dashboard/top-inspector` returns inspection counts grouped by inspector for charting.
+
+### Role-Based Access Control
+
+QualiTrack enforces three formal roles from the existing `users.role` field: `admin`, `quality_manager`, and `inspector`.
+
+- **Admin** has full access to all factories, products, batches, inspections, defects, dashboards, reports, and user role management.
+- **Quality Manager** can manage inspections, defects, dashboards, and reports, and can view factory, product, and batch reference data without changing it.
+- **Inspector** can create, view, edit, and delete permitted inspections and defects while viewing the batch metadata needed for inspection work.
+
+Administrators can manage user roles from `/users/manage` or by calling `PUT /users/{id}/role` with a role payload such as `{"role": "quality_manager"}`. Forbidden API requests return `403`, while browser page requests render the not-authorized page.

@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.rbac import ROLE_ADMIN, ROLE_INSPECTOR, ROLE_QUALITY_MANAGER, ensure_batch_access, ensure_defect_access, ensure_inspection_access, require_role, rbac_template_context
 from app.database.session import get_db
 from app.models.factory import Defect, Inspection
 from app.models.user import User
@@ -20,6 +21,7 @@ from app.schemas.factory import DefectCreate, DefectList, DefectRead, DefectStat
 
 router = APIRouter(prefix="/defects", tags=["Defects"])
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals.update(rbac_template_context())
 settings = get_settings()
 DEFECT_TYPES = ("Crack", "Scratch", "Missing Part", "Paint Issue", "Loose Component", "Wrong Label", "Custom")
 SEVERITIES = ("Low", "Medium", "High")
@@ -131,9 +133,10 @@ def new_defect_page(request: Request, db: Annotated[Session, Depends(get_db)], i
 
 
 @router.post("", response_model=DefectRead, status_code=status.HTTP_201_CREATED)
-async def create_defect(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Defect | RedirectResponse:
+async def create_defect(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))]) -> Defect | RedirectResponse:
     defect_data = DefectCreate(**await _defect_payload(request))
-    _ensure_failed_inspection(db, defect_data.inspection_id)
+    inspection = _ensure_failed_inspection(db, defect_data.inspection_id)
+    ensure_inspection_access(current_user, inspection)
     defect = Defect(**defect_data.model_dump())
     _apply_resolution(defect, defect.status)
     db.add(defect); db.commit(); db.refresh(defect)
@@ -143,9 +146,11 @@ async def create_defect(request: Request, db: Annotated[Session, Depends(get_db)
 
 
 @router.get("", response_model=DefectList)
-def list_defects(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], defect_type: str | None = None, severity: str | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, page: int = 1, per_page: int = 10) -> DefectList | HTMLResponse:
+def list_defects(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))], defect_type: str | None = None, severity: str | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, page: int = 1, per_page: int = 10) -> DefectList | HTMLResponse:
     page, per_page = _pagination(page, per_page)
     query = _defect_query(defect_type, severity, status_filter, start_date, end_date)
+    if current_user.role == ROLE_INSPECTOR:
+        query = query.join(Inspection).where(Inspection.inspector_id == current_user.id)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     pages = max(ceil(total / per_page), 1)
     defects = list(db.scalars(query.order_by(Defect.created_at.desc(), Defect.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
@@ -155,15 +160,17 @@ def list_defects(request: Request, db: Annotated[Session, Depends(get_db)], curr
 
 
 @router.get("/stats", response_model=DefectStats)
-def defect_stats(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> DefectStats:
+def defect_stats(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))]) -> DefectStats:
     by_type = {row[0]: row[1] for row in db.execute(select(Defect.defect_type, func.count(Defect.id)).group_by(Defect.defect_type)).all()}
     by_severity = {row[0]: row[1] for row in db.execute(select(Defect.severity, func.count(Defect.id)).group_by(Defect.severity)).all()}
     return DefectStats(by_type=by_type, by_severity=by_severity)
 
 
 @router.get("/{defect_id}", response_model=DefectRead)
-def get_defect(defect_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Defect:
-    return _get_defect_or_404(db, defect_id)
+def get_defect(defect_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))]) -> Defect:
+    defect = _get_defect_or_404(db, defect_id)
+    ensure_defect_access(current_user, defect)
+    return defect
 
 
 @router.get("/{defect_id}/edit", response_class=HTMLResponse, include_in_schema=False)
@@ -172,12 +179,14 @@ def edit_defect_page(defect_id: int, request: Request, db: Annotated[Session, De
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
     defect = _get_defect_or_404(db, defect_id)
+    ensure_defect_access(current_user, defect)
     return templates.TemplateResponse("defects/form.html", _template_context(request, current_user, defect=defect, inspection=defect.inspection, form_action=f"/defects/{defect.id}/edit", form_title="Edit Defect"))
 
 
 @router.put("/{defect_id}", response_model=DefectRead)
-async def update_defect(defect_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Defect:
+async def update_defect(defect_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))]) -> Defect:
     defect = _get_defect_or_404(db, defect_id)
+    ensure_defect_access(current_user, defect)
     updates = DefectUpdate(**await _defect_payload(request, partial=True)).model_dump(exclude_unset=True)
     if "inspection_id" in updates:
         _ensure_failed_inspection(db, updates["inspection_id"])
@@ -199,8 +208,9 @@ async def update_defect_from_form(defect_id: int, request: Request, db: Annotate
 
 
 @router.delete("/{defect_id}", response_model=DefectRead)
-def delete_defect(defect_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Defect:
+def delete_defect(defect_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))]) -> Defect:
     defect = _get_defect_or_404(db, defect_id)
+    ensure_defect_access(current_user, defect)
     db.delete(defect); db.commit()
     return defect
 

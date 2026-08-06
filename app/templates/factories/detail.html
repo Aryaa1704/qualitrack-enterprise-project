@@ -80,7 +80,7 @@
   </div>
   <div class="detail-actions">
     <a class="button button-secondary" href="/factories">Back to Factories</a>
-    <a class="button" href="/factories/{{ factory.id }}/edit">Edit</a>
+    {% if current_user.role == 'admin' %}<a class="button" href="/factories/{{ factory.id }}/edit">Edit</a>{% endif %}
   </div>
 </section>
 

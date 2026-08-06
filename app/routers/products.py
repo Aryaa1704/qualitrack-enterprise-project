@@ -11,6 +11,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.rbac import ROLE_ADMIN, ROLE_INSPECTOR, ROLE_QUALITY_MANAGER, ensure_batch_access, ensure_defect_access, ensure_inspection_access, require_role, rbac_template_context
 from app.database.session import get_db
 from app.models.factory import Batch, Product
 from app.models.user import User
@@ -19,6 +20,7 @@ from app.schemas.factory import ProductCreate, ProductList, ProductRead, Product
 
 router = APIRouter(prefix="/products", tags=["Products"])
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals.update(rbac_template_context())
 settings = get_settings()
 
 
@@ -78,11 +80,13 @@ def new_product_page(request: Request, db: Annotated[Session, Depends(get_db)]) 
     current_user = get_optional_current_user(request, db)
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    if current_user.role != ROLE_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     return templates.TemplateResponse("products/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "product": None, "form_action": "/products", "form_title": "New Product"})
 
 
 @router.post("", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
-async def create_product(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Product | RedirectResponse:
+async def create_product(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))]) -> Product | RedirectResponse:
     payload = await _product_payload(request)
     product_data = ProductCreate(**payload)
     _ensure_unique_sku(db, product_data.sku_code)
@@ -96,7 +100,7 @@ async def create_product(request: Request, db: Annotated[Session, Depends(get_db
 
 
 @router.get("", response_model=ProductList)
-def list_products(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, category: str | None = None, status_filter: str | None = None, page: int = 1, per_page: int = 10) -> ProductList | HTMLResponse:
+def list_products(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))], search: str | None = None, category: str | None = None, status_filter: str | None = None, page: int = 1, per_page: int = 10) -> ProductList | HTMLResponse:
     page, per_page = _pagination(page, per_page)
     query = select(Product)
     if search:
@@ -116,7 +120,7 @@ def list_products(request: Request, db: Annotated[Session, Depends(get_db)], cur
 
 
 @router.get("/{product_id}", response_model=ProductRead)
-def get_product(product_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Product | HTMLResponse:
+def get_product(product_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))]) -> Product | HTMLResponse:
     product = _get_product_or_404(db, product_id)
     if _wants_html(request):
         batches = list(db.scalars(select(Batch).where(Batch.product_id == product.id).order_by(Batch.manufacturing_date.desc(), Batch.id.desc())).all())
@@ -130,11 +134,13 @@ def edit_product_page(product_id: int, request: Request, db: Annotated[Session, 
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
     product = _get_product_or_404(db, product_id)
+    if current_user.role != ROLE_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     return templates.TemplateResponse("products/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "product": product, "form_action": f"/products/{product.id}/edit", "form_title": "Edit Product"})
 
 
 @router.put("/{product_id}", response_model=ProductRead)
-async def update_product(product_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Product:
+async def update_product(product_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))]) -> Product:
     product = _get_product_or_404(db, product_id)
     updates = ProductUpdate(**await _product_payload(request, partial=True)).model_dump(exclude_unset=True)
     if "sku_code" in updates:
@@ -155,7 +161,7 @@ async def update_product_from_form(product_id: int, request: Request, db: Annota
 
 
 @router.delete("/{product_id}", response_model=ProductRead)
-def delete_product(product_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Product:
+def delete_product(product_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))]) -> Product:
     product = _get_product_or_404(db, product_id)
     product.status = "inactive"
     db.commit(); db.refresh(product)

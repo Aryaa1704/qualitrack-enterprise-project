@@ -13,13 +13,14 @@
         <a class="brand" href="/">{{ app_name }}</a>
         <nav class="site-nav" aria-label="Primary navigation">
           {% if current_user %}
-            <a class="nav-link" href="/dashboard">Dashboard</a>
-            <a class="nav-link" href="/factories">Factories</a>
-            <a class="nav-link" href="/products">Products</a>
+            {% if current_user.role in ['admin', 'quality_manager'] %}<a class="nav-link" href="/dashboard">Dashboard</a>{% endif %}
+            {% if current_user.role in ['admin', 'quality_manager'] %}<a class="nav-link" href="/factories">Factories</a>{% endif %}
+            {% if current_user.role in ['admin', 'quality_manager'] %}<a class="nav-link" href="/products">Products</a>{% endif %}
             <a class="nav-link" href="/batches">Batches</a>
             <a class="nav-link" href="/inspections">Inspections</a>
             <a class="nav-link" href="/defects">Defects</a>
-            <a class="nav-link" href="/reports">Reports</a>
+            {% if current_user.role in ['admin', 'quality_manager'] %}<a class="nav-link" href="/reports">Reports</a>{% endif %}
+            {% if current_user.role == 'admin' %}<a class="nav-link" href="/users/manage">Users</a>{% endif %}
             <a class="nav-link" href="/auth/profile">{{ current_user.username }}</a>
             <form class="nav-form" action="/auth/logout" method="post">
               <button class="nav-button" type="submit">Logout</button>

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Manage Users · {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page-header" aria-labelledby="users-title">
+  <div><p class="eyebrow">Administration</p><h1 id="users-title">User Management</h1><p class="section-copy">Review users and assign one of the supported QualiTrack roles.</p></div>
+</section>
+<section class="table-card" aria-label="User role management">
+  <table class="data-table">
+    <thead><tr><th>Username</th><th>Email</th><th>Current Role</th><th>Status</th><th>Change Role</th></tr></thead>
+    <tbody>
+      {% for user in users %}
+      <tr>
+        <td>{{ user.username }}</td><td>{{ user.email }}</td><td>{{ role_label(user.role) }}</td><td>{% if user.is_active %}Active{% else %}Inactive{% endif %}</td>
+        <td>
+          <form class="inline-form" action="/users/{{ user.id }}/role" method="post">
+            <select name="role" aria-label="Role for {{ user.username }}">
+              {% for role in valid_roles %}<option value="{{ role }}" {% if user.role == role %}selected{% endif %}>{{ role_label(role) }}</option>{% endfor %}
+            </select>
+            <button class="button" type="submit">Update</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

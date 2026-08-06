@@ -37,3 +37,9 @@ class TokenData(BaseModel):
     """Decoded token subject."""
 
     username: str | None = None
+
+
+class UserRoleUpdate(BaseModel):
+    """Role update payload for administrators."""
+
+    role: str

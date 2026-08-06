@@ -9,7 +9,7 @@
     <h1 id="factories-title">Factories</h1>
     <p class="section-copy">Manage the top-level manufacturing sites in the plant hierarchy.</p>
   </div>
-  <a class="button" href="/factories/new">New Factory</a>
+  {% if current_user.role == 'admin' %}<a class="button" href="/factories/new">New Factory</a>{% endif %}
 </section>
 
 <section class="table-card" aria-label="Factory list">
@@ -33,7 +33,7 @@
             <td><span class="status-pill status-{{ factory.status }}">{{ factory.status }}</span></td>
             <td class="table-actions">
               <a href="/factories/{{ factory.id }}">View</a>
-              <a href="/factories/{{ factory.id }}/edit">Edit</a>
+              {% if current_user.role == 'admin' %}<a href="/factories/{{ factory.id }}/edit">Edit</a>{% endif %}
             </td>
           </tr>
         {% endfor %}

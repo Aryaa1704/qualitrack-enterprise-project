@@ -4,7 +4,9 @@ from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 
+from app.database.session import SessionLocal
 from app.main import app
+from app.models.user import User
 
 client = TestClient(app)
 
@@ -42,7 +44,7 @@ def test_openapi_schema_includes_health_auth_and_factory_endpoints() -> None:
     assert "delete" in paths["/factories/{factory_id}"]
 
 
-def _authenticated_client() -> TestClient:
+def _authenticated_client(role: str = "admin") -> TestClient:
     alembic_cfg = Config("alembic.ini")
     command.upgrade(alembic_cfg, "head")
 
@@ -55,6 +57,10 @@ def _authenticated_client() -> TestClient:
         data={"username": username, "email": email, "password": "securepass123"},
     )
     assert register_response.status_code == 201
+    with SessionLocal() as db:
+        user = db.query(User).filter(User.username == username).one()
+        user.role = role
+        db.commit()
 
     login_response = auth_client.post(
         "/auth/login",
@@ -965,3 +971,28 @@ def test_reports_filter_summaries_and_csv_exports() -> None:
     batch_csv = auth_client.get("/reports/batch/export")
     assert batch_csv.status_code == 200
     assert batch["batch_number"] in batch_csv.text
+
+
+def test_rbac_restricts_factory_writes_and_allows_admin_role_update() -> None:
+    admin_client = _authenticated_client("admin")
+    inspector_client = _authenticated_client("inspector")
+
+    forbidden = inspector_client.post(
+        "/factories",
+        json={"name": "Denied Plant", "code": f"DEN-{uuid4().hex[:8]}", "location": "Austin, TX"},
+    )
+    assert forbidden.status_code == 403
+
+    me_response = inspector_client.get("/auth/me")
+    user_id = me_response.json()["id"]
+    update_response = admin_client.put(f"/users/{user_id}/role", json={"role": "quality_manager"})
+    assert update_response.status_code == 200
+    assert update_response.json()["role"] == "quality_manager"
+
+
+def test_inspector_cannot_access_manager_reports() -> None:
+    inspector_client = _authenticated_client("inspector")
+
+    response = inspector_client.get("/reports/inspection")
+
+    assert response.status_code == 403

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Not Authorized · {{ app_name }}{% endblock %}
+{% block content %}
+<section class="auth-card" aria-labelledby="not-authorized-title">
+  <p class="eyebrow">Access Denied</p>
+  <h1 id="not-authorized-title">Not authorized</h1>
+  <p class="auth-copy">Your current role does not permit access to this page or action.</p>
+  <a class="button" href="/dashboard">Back to Dashboard</a>
+</section>
+{% endblock %}

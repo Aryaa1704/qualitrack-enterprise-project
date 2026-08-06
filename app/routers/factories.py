@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.rbac import ROLE_ADMIN, ROLE_INSPECTOR, ROLE_QUALITY_MANAGER, ensure_batch_access, ensure_defect_access, ensure_inspection_access, require_role, rbac_template_context
 from app.database.session import get_db
 from app.models.factory import Department, Factory, Machine, ProductionLine
 from app.models.user import User
@@ -37,6 +38,7 @@ from app.schemas.factory import (
 
 router = APIRouter(prefix="/factories", tags=["Factories"])
 templates = Jinja2Templates(directory="app/templates")
+templates.env.globals.update(rbac_template_context())
 settings = get_settings()
 
 
@@ -227,6 +229,8 @@ def new_factory_page(request: Request, db: Annotated[Session, Depends(get_db)]) 
     current_user = get_optional_current_user(request, db)
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    if current_user.role != ROLE_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     return templates.TemplateResponse(
         "factories/form.html",
         {
@@ -245,7 +249,7 @@ def new_factory_page(request: Request, db: Annotated[Session, Depends(get_db)]) 
 async def create_factory(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> Factory | RedirectResponse:
     """Create a factory."""
 
@@ -265,7 +269,7 @@ async def create_factory(
 def list_factories(
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))],
     page: int = 1,
     per_page: int = 10,
 ) -> FactoryList | HTMLResponse:
@@ -300,7 +304,7 @@ def get_factory(
     factory_id: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))],
 ) -> Factory | HTMLResponse:
     """Return factory details."""
 
@@ -360,6 +364,8 @@ def edit_factory_page(
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
     factory = _get_factory_or_404(db, factory_id)
+    if current_user.role != ROLE_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     return templates.TemplateResponse(
         "factories/form.html",
         {
@@ -379,7 +385,7 @@ async def update_factory(
     factory_id: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> Factory:
     """Update a factory."""
 
@@ -423,7 +429,7 @@ async def update_factory_from_form(
 def delete_factory(
     factory_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> Factory:
     """Soft-delete a factory by marking it inactive."""
 
@@ -456,7 +462,7 @@ async def create_department(
     factory_id: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> Department | RedirectResponse:
     """Create a department under a factory."""
 
@@ -477,7 +483,7 @@ async def create_department(
 def list_departments(
     factory_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))],
     page: int = 1,
     per_page: int = 10,
 ) -> DepartmentList:
@@ -497,7 +503,7 @@ def get_department(
     factory_id: int,
     dept_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))],
 ) -> Department:
     """Return one active department under a factory."""
 
@@ -511,7 +517,7 @@ async def update_department(
     dept_id: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> Department:
     """Update an active department."""
 
@@ -533,7 +539,7 @@ def delete_department(
     factory_id: int,
     dept_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> Department:
     """Soft-delete a department by marking it inactive."""
 
@@ -568,7 +574,7 @@ async def create_production_line(
     factory_id: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> ProductionLine | RedirectResponse:
     """Create a production line under a factory."""
 
@@ -590,7 +596,7 @@ async def create_production_line(
 def list_production_lines(
     factory_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))],
     page: int = 1,
     per_page: int = 10,
 ) -> ProductionLineList:
@@ -617,7 +623,7 @@ def get_production_line(
     factory_id: int,
     line_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))],
 ) -> ProductionLine:
     """Return one active production line under a factory."""
 
@@ -631,7 +637,7 @@ async def update_production_line(
     line_id: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> ProductionLine:
     """Update an active production line."""
 
@@ -655,7 +661,7 @@ def delete_production_line(
     factory_id: int,
     line_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> ProductionLine:
     """Soft-delete a production line by marking it inactive."""
 
@@ -715,7 +721,7 @@ async def create_machine(
     line_id: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> Machine | RedirectResponse:
     """Create a machine under a production line."""
 
@@ -738,7 +744,7 @@ def list_machines(
     factory_id: int,
     line_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))],
     status: str | None = None,
     status_filter: str | None = None,
     production_line_id: int | None = None,
@@ -773,7 +779,7 @@ def get_machine(
     line_id: int,
     machine_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))],
 ) -> Machine:
     """Return one machine under a production line."""
 
@@ -789,7 +795,7 @@ async def update_machine(
     machine_id: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> Machine:
     """Update a machine."""
 
@@ -815,7 +821,7 @@ async def change_machine_status(
     machine_id: int,
     request: Request,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN, ROLE_QUALITY_MANAGER, ROLE_INSPECTOR))],
 ) -> Machine | RedirectResponse:
     """Change only a machine status."""
 
@@ -838,7 +844,7 @@ def delete_machine(
     line_id: int,
     machine_id: int,
     db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_role(ROLE_ADMIN))],
 ) -> Machine:
     """Soft-delete a machine by marking it inactive."""
 
