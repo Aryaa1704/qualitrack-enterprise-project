@@ -168,3 +168,16 @@ pytest
 ## Quality inspections
 
 Authenticated inspectors can create, edit, delete, search, and filter batch quality inspections. New inspections are always attributed to the logged-in user, auto-calculate Pass/Fail status from inspection checks, and appear in batch inspection history.
+
+## Defect tracking
+
+Failed inspections can have one or more linked defects. Authenticated users can add defects from a failed inspection detail page, edit corrective actions and statuses, mark defects resolved, filter the defect list by type/severity/status/date range, and read grouped counts for future dashboard analytics.
+
+## Defect endpoints
+
+- `POST /defects` creates a defect linked to a failed inspection.
+- `GET /defects` returns defects with type, severity, status, created-date range, and pagination filters.
+- `GET /defects/stats` returns defect counts grouped by type and by severity.
+- `GET /defects/{defect_id}` returns one defect.
+- `PUT /defects/{defect_id}` updates a defect and automatically sets `resolved_date` when status becomes `Resolved`.
+- `DELETE /defects/{defect_id}` deletes a defect.

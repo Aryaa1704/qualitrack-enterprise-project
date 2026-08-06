@@ -143,6 +143,28 @@ class Batch(Base):
     inspections: Mapped[list["Inspection"]] = relationship(back_populates="batch", cascade="all, delete-orphan")
 
 
+class Defect(Base):
+    """Defect recorded against a failed quality inspection."""
+
+    __tablename__ = "defects"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    inspection_id: Mapped[int] = mapped_column(ForeignKey("inspections.id"), nullable=False, index=True)
+    defect_type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    corrective_action: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="Open", index=True)
+    resolved_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    inspection: Mapped["Inspection"] = relationship(back_populates="defects")
+
+
 class Inspection(Base):
     """Quality inspection result recorded against a production batch."""
 
@@ -170,3 +192,4 @@ class Inspection(Base):
 
     batch: Mapped[Batch] = relationship(back_populates="inspections")
     inspector: Mapped["User"] = relationship(back_populates="inspections")
+    defects: Mapped[list[Defect]] = relationship(back_populates="inspection", cascade="all, delete-orphan")

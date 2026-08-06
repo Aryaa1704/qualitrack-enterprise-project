@@ -321,3 +321,60 @@ class InspectionList(BaseModel):
     per_page: int
     total: int
     pages: int
+
+DEFECT_TYPE_PATTERN = "^(Crack|Scratch|Missing Part|Paint Issue|Loose Component|Wrong Label|Custom)$"
+DEFECT_SEVERITY_PATTERN = "^(Low|Medium|High)$"
+DEFECT_STATUS_PATTERN = "^(Open|In Progress|Resolved)$"
+
+
+class DefectBase(BaseModel):
+    """Shared defect tracking fields."""
+
+    inspection_id: int
+    defect_type: str = Field(pattern=DEFECT_TYPE_PATTERN)
+    severity: str = Field(pattern=DEFECT_SEVERITY_PATTERN)
+    description: str = Field(min_length=1, max_length=2000)
+    corrective_action: str = Field(default="", max_length=2000)
+    status: str = Field(default="Open", pattern=DEFECT_STATUS_PATTERN)
+
+
+class DefectCreate(DefectBase):
+    """Data required to create a defect."""
+
+
+class DefectUpdate(BaseModel):
+    """Data allowed when updating a defect."""
+
+    inspection_id: int | None = None
+    defect_type: str | None = Field(default=None, pattern=DEFECT_TYPE_PATTERN)
+    severity: str | None = Field(default=None, pattern=DEFECT_SEVERITY_PATTERN)
+    description: str | None = Field(default=None, min_length=1, max_length=2000)
+    corrective_action: str | None = Field(default=None, max_length=2000)
+    status: str | None = Field(default=None, pattern=DEFECT_STATUS_PATTERN)
+
+
+class DefectRead(DefectBase):
+    """Defect details returned by the API."""
+
+    id: int
+    resolved_date: datetime | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DefectList(BaseModel):
+    """Paginated defect list response."""
+
+    items: list[DefectRead]
+    page: int
+    per_page: int
+    total: int
+    pages: int
+
+
+class DefectStats(BaseModel):
+    """Defect counts grouped for analytics consumers."""
+
+    by_type: dict[str, int]
+    by_severity: dict[str, int]

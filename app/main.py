@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.database.session import get_db
 from app.routers.auth import get_optional_current_user, router as auth_router
 from app.routers.batches import router as batches_router
+from app.routers.defects import router as defects_router
 from app.routers.factories import router as factories_router
 from app.routers.inspections import router as inspections_router
 from app.routers.products import router as products_router
@@ -30,6 +31,7 @@ app.include_router(factories_router)
 app.include_router(products_router)
 app.include_router(batches_router)
 app.include_router(inspections_router)
+app.include_router(defects_router)
 templates = Jinja2Templates(directory="app/templates")
 
 
