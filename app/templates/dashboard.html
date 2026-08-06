@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page-header" aria-labelledby="dashboard-title">
+  <div>
+    <p class="eyebrow">Live Analytics</p>
+    <h1 id="dashboard-title">Quality Dashboard</h1>
+    <p class="section-copy">Monitor inspection throughput, quality outcomes, defect concentration, and inspector activity from live database data.</p>
+  </div>
+</section>
+
+<section class="dashboard-summary" aria-label="Dashboard summary metrics">
+  <article class="metric-card"><span>Today&apos;s inspections</span><strong id="today-inspections">—</strong></article>
+  <article class="metric-card"><span>Pass rate</span><strong id="pass-percent">—</strong></article>
+  <article class="metric-card"><span>Fail rate</span><strong id="fail-percent">—</strong></article>
+  <article class="metric-card"><span>Pending batches</span><strong id="pending-inspections">—</strong></article>
+  <article class="metric-card metric-card-alert"><span>Critical defects</span><strong id="critical-defects">—</strong></article>
+</section>
+
+<section class="dashboard-grid" aria-label="Dashboard charts">
+  <article class="chart-card">
+    <div class="chart-heading"><h2>Inspection Trend</h2><p>Daily inspection volume over the last 30 days.</p></div>
+    <canvas id="trend-chart" aria-label="Inspection trend chart" role="img"></canvas>
+  </article>
+  <article class="chart-card">
+    <div class="chart-heading"><h2>Pass vs Fail</h2><p>Current quality outcome distribution.</p></div>
+    <canvas id="status-chart" aria-label="Pass fail distribution chart" role="img"></canvas>
+  </article>
+  <article class="chart-card">
+    <div class="chart-heading"><h2>Most Common Defects</h2><p>Defect types grouped by frequency.</p></div>
+    <canvas id="defects-chart" aria-label="Most common defects chart" role="img"></canvas>
+  </article>
+  <article class="chart-card">
+    <div class="chart-heading"><h2>Top Inspectors</h2><p>Inspection counts grouped by inspector.</p></div>
+    <canvas id="inspectors-chart" aria-label="Top inspectors chart" role="img"></canvas>
+  </article>
+</section>
+
+<section class="recent-activity" aria-labelledby="recent-activity-title">
+  <div class="section-heading"><h2 id="recent-activity-title">Recent Activity</h2><a class="button button-secondary" href="/inspections">View all inspections</a></div>
+  {% if recent_inspections %}
+    <div class="table-card">
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Batch</th><th>Inspector</th><th>Status</th><th>Score</th></tr></thead>
+        <tbody>
+          {% for inspection in recent_inspections %}
+            <tr>
+              <td>{{ inspection.inspection_date }}</td>
+              <td><a href="/batches/{{ inspection.batch_id }}">{{ inspection.batch.batch_number }}</a></td>
+              <td>{{ inspection.inspector.username }}</td>
+              <td><span class="status-pill status-{{ inspection.overall_status|lower }}">{{ inspection.overall_status }}</span></td>
+              <td>{{ inspection.inspection_score }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty-state">No inspections have been recorded yet.</p>
+  {% endif %}
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const chartColors = ["#1d4ed8", "#16a34a", "#dc2626", "#f59e0b", "#7c3aed", "#0891b2", "#be185d", "#475569"];
+
+  async function fetchJson(url) {
+    const response = await fetch(url, { headers: { "Accept": "application/json" } });
+    if (!response.ok) throw new Error(`Dashboard request failed: ${url}`);
+    return response.json();
+  }
+
+  function setMetric(id, value, suffix = "") {
+    document.getElementById(id).textContent = `${value}${suffix}`;
+  }
+
+  function emptyAwareLabels(labels) {
+    return labels.length ? labels : ["No data"];
+  }
+
+  function emptyAwareCounts(counts) {
+    return counts.length ? counts : [0];
+  }
+
+  async function loadDashboard() {
+    const [summary, trend, defects, inspectors] = await Promise.all([
+      fetchJson("/dashboard/summary"),
+      fetchJson("/dashboard/trend"),
+      fetchJson("/dashboard/top-defects"),
+      fetchJson("/dashboard/top-inspector"),
+    ]);
+
+    setMetric("today-inspections", summary.today_inspections);
+    setMetric("pass-percent", summary.pass_percent, "%");
+    setMetric("fail-percent", summary.fail_percent, "%");
+    setMetric("pending-inspections", summary.pending_inspections);
+    setMetric("critical-defects", summary.critical_defects);
+
+    new Chart(document.getElementById("trend-chart"), {
+      type: "line",
+      data: { labels: trend.labels, datasets: [{ label: "Inspections", data: trend.counts, borderColor: chartColors[0], backgroundColor: "rgba(29, 78, 216, 0.14)", tension: 0.25, fill: true }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    });
+
+    new Chart(document.getElementById("status-chart"), {
+      type: "doughnut",
+      data: { labels: ["Pass", "Fail"], datasets: [{ data: [summary.pass_percent, summary.fail_percent], backgroundColor: [chartColors[1], chartColors[2]] }] },
+      options: { responsive: true }
+    });
+
+    new Chart(document.getElementById("defects-chart"), {
+      type: "bar",
+      data: { labels: emptyAwareLabels(defects.labels), datasets: [{ label: "Defects", data: emptyAwareCounts(defects.counts), backgroundColor: chartColors }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    });
+
+    new Chart(document.getElementById("inspectors-chart"), {
+      type: "bar",
+      data: { labels: emptyAwareLabels(inspectors.labels), datasets: [{ label: "Inspections", data: emptyAwareCounts(inspectors.counts), backgroundColor: chartColors[0] }] },
+      options: { indexAxis: "y", responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
+    });
+  }
+
+  loadDashboard().catch((error) => console.error(error));
+</script>
+{% endblock %}

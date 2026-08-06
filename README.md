@@ -2,7 +2,7 @@
 
 QualiTrack is a Manufacturing Quality Inspection & Defect Analytics Platform.
 
-This repository contains the Phase 5 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, factory management, departments, production lines, machines, products, and production batches. It does not include role permissions or inspections yet.
+This repository contains the Phase 5 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, factory management, departments, production lines, machines, products, and production batches, inspections, defect tracking, a live analytics dashboard, and CSV-backed reports. It does not include role permissions yet.
 
 ## For builders: what this means in simple words
 
@@ -19,6 +19,8 @@ Think of this phase like preparing an empty factory building before machines arr
 - **Machines**: authenticated users can manage equipment under production lines, change machine status, and filter machines by status, production line, or factory.
 - **Products**: authenticated users can manage product catalog records, enforce unique SKU codes, and search/filter product lists.
 - **Batches**: authenticated users can assign product batches to production lines, validate manufacturing/expiry dates, enforce unique batch numbers, filter by relationship/status/date range, and view product batch history.
+- **Dashboard analytics**: authenticated users can view live inspection summaries, pass/fail rates, 30-day trends, top defects, top inspectors, and recent inspections.
+- **Reports**: authenticated users can filter inspection, defect, factory, and batch reports, then export matching data as CSV.
 
 ## Project structure
 
@@ -95,6 +97,8 @@ Then open:
 - Products: <http://127.0.0.1:8000/products>
 - Batches: <http://127.0.0.1:8000/batches>
 - Machines: open a factory detail page, then use the Machines section under its production lines.
+- Dashboard: <http://127.0.0.1:8000/dashboard>
+- Reports: <http://127.0.0.1:8000/reports>
 
 
 ## Authentication endpoints
@@ -181,3 +185,29 @@ Failed inspections can have one or more linked defects. Authenticated users can 
 - `GET /defects/{defect_id}` returns one defect.
 - `PUT /defects/{defect_id}` updates a defect and automatically sets `resolved_date` when status becomes `Resolved`.
 - `DELETE /defects/{defect_id}` deletes a defect.
+
+## Dashboard analytics
+
+The authenticated dashboard page uses Chart.js and client-side `fetch()` calls so charts are populated from live API data instead of hard-coded template values. It includes summary cards, pass/fail distribution, a 30-day inspection trend, most common defects, top inspectors, and a simple recent-inspections activity feed.
+
+## Dashboard endpoints
+
+- `GET /dashboard/summary` returns today's inspection count, live pass/fail percentages, batches with zero inspections, and unresolved high-severity defects.
+- `GET /dashboard/trend` returns daily inspection counts for the last 30 days.
+- `GET /dashboard/top-defects` returns defect counts grouped by defect type for charting.
+- `GET /dashboard/top-inspector` returns inspection counts grouped by inspector for charting.
+
+## Reports
+
+The authenticated Reports module provides a landing page plus Inspection, Defect, Factory, and Batch reports. Inspection and defect reports include filters and summary cards, factory reports aggregate pass/fail inspection counts per factory, and batch reports show inspection and defect counts per batch. Each report has a CSV export endpoint that uses the same filters as the page/API view.
+
+## Report endpoints
+
+- `GET /reports/inspection/data` returns filtered inspection report data and pass/fail summary metrics.
+- `GET /reports/inspection/export` exports the filtered inspection report as CSV.
+- `GET /reports/defect/data` returns filtered defect report data and open/resolved/critical summary metrics.
+- `GET /reports/defect/export` exports the filtered defect report as CSV.
+- `GET /reports/factory/data` returns pass/fail inspection counts grouped by factory.
+- `GET /reports/factory/export` exports the factory report as CSV.
+- `GET /reports/batch/data` returns inspection and defect counts grouped by batch.
+- `GET /reports/batch/export` exports the filtered batch report as CSV.

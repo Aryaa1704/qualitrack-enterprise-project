@@ -536,3 +536,141 @@ a {
   background: #fee2e2;
   color: #991b1b;
 }
+
+.dashboard-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.metric-card,
+.chart-card,
+.recent-activity {
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.metric-card {
+  padding: 20px;
+}
+
+.metric-card span,
+.chart-heading p {
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+.metric-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 2rem;
+  letter-spacing: -0.04em;
+}
+
+.metric-card-alert strong {
+  color: #dc2626;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.chart-card {
+  min-height: 380px;
+  padding: 24px;
+}
+
+.chart-heading h2 {
+  margin: 0;
+}
+
+.chart-heading p {
+  margin: 8px 0 20px;
+}
+
+.recent-activity {
+  margin-top: 28px;
+  padding: 24px;
+}
+
+.recent-activity .table-card {
+  box-shadow: none;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-summary,
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-summary,
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.report-link-grid,
+.report-summary {
+  display: grid;
+  gap: 20px;
+}
+
+.report-link-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.report-link-card {
+  min-height: 180px;
+  padding: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  text-decoration: none;
+}
+
+.report-link-card h2 {
+  margin: 0 0 12px;
+}
+
+.report-link-card p {
+  margin: 0;
+  color: var(--color-muted);
+  line-height: 1.6;
+}
+
+.report-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 24px;
+}
+
+.report-filter-form {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.report-filter-form .button {
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .report-link-grid,
+  .report-summary,
+  .report-filter-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .report-link-grid,
+  .report-summary,
+  .report-filter-form {
+    grid-template-columns: 1fr;
+  }
+}

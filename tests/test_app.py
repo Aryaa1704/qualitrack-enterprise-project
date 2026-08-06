@@ -791,3 +791,223 @@ def test_defect_crud_filters_stats_resolution_and_html_flow() -> None:
 
     delete_response = auth_client.delete(f"/defects/{defect['id']}")
     assert delete_response.status_code == 200
+
+
+def test_openapi_schema_includes_dashboard_endpoints() -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert "/dashboard/summary" in paths
+    assert "/dashboard/trend" in paths
+    assert "/dashboard/top-defects" in paths
+    assert "/dashboard/top-inspector" in paths
+    assert "get" in paths["/dashboard/summary"]
+    assert "get" in paths["/dashboard/trend"]
+    assert "get" in paths["/dashboard/top-defects"]
+    assert "get" in paths["/dashboard/top-inspector"]
+
+
+def test_dashboard_apis_return_live_aggregated_data_and_update() -> None:
+    auth_client = _authenticated_client()
+    batch = _create_batch(auth_client, f"DASH-{uuid4().hex[:6]}")
+    pending_batch = _create_batch(auth_client, f"DASH-PENDING-{uuid4().hex[:6]}")
+
+    dashboard_page = auth_client.get("/dashboard", headers={"accept": "text/html"})
+    assert dashboard_page.status_code == 200
+    assert "Quality Dashboard" in dashboard_page.text
+    assert pending_batch["batch_number"] not in dashboard_page.text
+
+    pass_response = auth_client.post("/inspections", json=_inspection_payload(batch["id"], inspection_score=96))
+    fail_response = auth_client.post(
+        "/inspections",
+        json=_inspection_payload(batch["id"], scratch="fail", remarks="Dashboard fail sample", inspection_score=71),
+    )
+    assert pass_response.status_code == 201
+    assert fail_response.status_code == 201
+    fail_inspection = fail_response.json()
+
+    defect_response = auth_client.post(
+        "/defects",
+        json={
+            "inspection_id": fail_inspection["id"],
+            "defect_type": "Paint Issue",
+            "severity": "High",
+            "description": "Paint chip visible on dashboard sample",
+            "status": "Open",
+        },
+    )
+    assert defect_response.status_code == 201
+
+    summary_response = auth_client.get("/dashboard/summary")
+    trend_response = auth_client.get("/dashboard/trend")
+    defects_response = auth_client.get("/dashboard/top-defects")
+    inspectors_response = auth_client.get("/dashboard/top-inspector")
+
+    assert summary_response.status_code == 200
+    assert trend_response.status_code == 200
+    assert defects_response.status_code == 200
+    assert inspectors_response.status_code == 200
+
+    summary = summary_response.json()
+    assert summary["today_inspections"] >= 2
+    assert summary["pass_percent"] > 0
+    assert summary["fail_percent"] > 0
+    assert summary["pending_inspections"] >= 1
+    assert summary["critical_defects"] >= 1
+
+    trend = trend_response.json()
+    assert len(trend["labels"]) == 30
+    assert len(trend["counts"]) == 30
+    assert sum(trend["counts"]) >= 2
+
+    defects = defects_response.json()
+    assert "Paint Issue" in defects["labels"]
+    paint_index = defects["labels"].index("Paint Issue")
+    assert defects["counts"][paint_index] >= 1
+
+    inspectors = inspectors_response.json()
+    me_response = auth_client.get("/auth/me")
+    assert me_response.status_code == 200
+    assert me_response.json()["username"] in inspectors["labels"]
+
+    before_count = summary["today_inspections"]
+    new_response = auth_client.post("/inspections", json=_inspection_payload(batch["id"], inspection_score=99))
+    assert new_response.status_code == 201
+    refreshed_summary = auth_client.get("/dashboard/summary").json()
+    assert refreshed_summary["today_inspections"] == before_count + 1
+
+
+def test_openapi_schema_includes_report_data_and_export_endpoints() -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    for report_name in ("inspection", "defect", "factory", "batch"):
+        data_path = f"/reports/{report_name}/data"
+        export_path = f"/reports/{report_name}/export"
+        assert data_path in paths
+        assert export_path in paths
+        assert "get" in paths[data_path]
+        assert "get" in paths[export_path]
+
+
+def test_reports_pages_filters_summaries_and_csv_exports() -> None:
+    auth_client = _authenticated_client()
+    unique = uuid4().hex[:8]
+    factory = _create_factory(auth_client)
+    line_response = auth_client.post(
+        f"/factories/{factory['id']}/production-lines",
+        json={"name": f"Report Line {unique}", "code": f"RL-{unique}", "status": "active"},
+    )
+    assert line_response.status_code == 201
+    line = line_response.json()
+    product = _create_product(auth_client, f"REP-{unique}")
+    batch_response = auth_client.post(
+        "/batches",
+        json={
+            "product_id": product["id"],
+            "production_line_id": line["id"],
+            "batch_number": f"REPORT-BATCH-{unique}",
+            "manufacturing_date": "2026-08-03",
+            "expiry_date": "2026-09-03",
+            "quantity": 200,
+            "status": "completed",
+        },
+    )
+    assert batch_response.status_code == 201
+    batch = batch_response.json()
+
+    pass_response = auth_client.post("/inspections", json=_inspection_payload(batch["id"], inspection_score=97))
+    fail_response = auth_client.post(
+        "/inspections",
+        json=_inspection_payload(batch["id"], scratch="fail", remarks="Report fail sample", inspection_score=68),
+    )
+    assert pass_response.status_code == 201
+    assert fail_response.status_code == 201
+    fail_inspection = fail_response.json()
+
+    defect_response = auth_client.post(
+        "/defects",
+        json={
+            "inspection_id": fail_inspection["id"],
+            "defect_type": "Crack",
+            "severity": "High",
+            "description": "Report crack sample",
+            "status": "Open",
+        },
+    )
+    assert defect_response.status_code == 201
+
+    reports_page = auth_client.get("/reports", headers={"accept": "text/html"})
+    assert reports_page.status_code == 200
+    assert "Reporting Center" in reports_page.text
+
+    inspection_page = auth_client.get(
+        f"/reports/inspection?product_id={product['id']}&batch_id={batch['id']}&status_filter=Fail",
+        headers={"accept": "text/html"},
+    )
+    assert inspection_page.status_code == 200
+    assert "Inspection Report" in inspection_page.text
+    assert "Report fail sample" not in inspection_page.text
+
+    inspection_data = auth_client.get(f"/reports/inspection/data?product_id={product['id']}&batch_id={batch['id']}&status_filter=Fail")
+    assert inspection_data.status_code == 200
+    inspection_report = inspection_data.json()
+    assert inspection_report["summary"]["total"] == 1
+    assert inspection_report["summary"]["fail_percent"] == 100.0
+    assert inspection_report["items"][0]["overall_status"] == "Fail"
+
+    inspection_csv = auth_client.get(f"/reports/inspection/export?product_id={product['id']}&batch_id={batch['id']}&status_filter=Fail")
+    assert inspection_csv.status_code == 200
+    assert "text/csv" in inspection_csv.headers["content-type"]
+    assert f"REPORT-BATCH-{unique}" in inspection_csv.text
+    assert "Fail" in inspection_csv.text
+
+    defect_page = auth_client.get("/reports/defect?defect_type=Crack&severity=High&status_filter=Open", headers={"accept": "text/html"})
+    assert defect_page.status_code == 200
+    assert "Defect Report" in defect_page.text
+
+    defect_data = auth_client.get("/reports/defect/data?defect_type=Crack&severity=High&status_filter=Open")
+    assert defect_data.status_code == 200
+    defect_report = defect_data.json()
+    assert defect_report["summary"]["open"] >= 1
+    assert defect_report["summary"]["critical"] >= 1
+    assert "Crack" in [item["defect_type"] for item in defect_report["items"]]
+
+    defect_csv = auth_client.get("/reports/defect/export?defect_type=Crack&severity=High&status_filter=Open")
+    assert defect_csv.status_code == 200
+    assert "Report crack sample" in defect_csv.text
+
+    factory_page = auth_client.get("/reports/factory", headers={"accept": "text/html"})
+    assert factory_page.status_code == 200
+    assert "Factory Report" in factory_page.text
+
+    factory_data = auth_client.get("/reports/factory/data?per_page=50")
+    assert factory_data.status_code == 200
+    factory_rows = [item for item in factory_data.json()["items"] if item["factory_id"] == factory["id"]]
+    assert factory_rows
+    assert factory_rows[0]["inspection_count"] == 2
+    assert factory_rows[0]["pass_count"] == 1
+    assert factory_rows[0]["fail_count"] == 1
+
+    factory_csv = auth_client.get("/reports/factory/export")
+    assert factory_csv.status_code == 200
+    assert factory["code"] in factory_csv.text
+
+    batch_page = auth_client.get(f"/reports/batch?product_id={product['id']}&batch_id={batch['id']}", headers={"accept": "text/html"})
+    assert batch_page.status_code == 200
+    assert "Batch Report" in batch_page.text
+    assert f"REPORT-BATCH-{unique}" in batch_page.text
+
+    batch_data = auth_client.get(f"/reports/batch/data?product_id={product['id']}&batch_id={batch['id']}")
+    assert batch_data.status_code == 200
+    batch_report = batch_data.json()
+    assert batch_report["total"] == 1
+    assert batch_report["items"][0]["inspection_count"] == 2
+    assert batch_report["items"][0]["defect_count"] == 1
+
+    batch_csv = auth_client.get(f"/reports/batch/export?product_id={product['id']}&batch_id={batch['id']}")
+    assert batch_csv.status_code == 200
+    assert f"REPORT-BATCH-{unique}" in batch_csv.text
+    assert ",2,1,1,1" in batch_csv.text

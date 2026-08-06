@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Reports | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page-header" aria-labelledby="reports-title">
+  <div>
+    <p class="eyebrow">Reports</p>
+    <h1 id="reports-title">Reporting Center</h1>
+    <p class="section-copy">Review filtered inspection, defect, factory, and batch reports, then export matching rows as CSV.</p>
+  </div>
+</section>
+<section class="report-link-grid" aria-label="Available reports">
+  <a class="report-link-card" href="/reports/inspection"><h2>Inspection Report</h2><p>Filter inspections by date, product, batch, inspector, and status.</p></a>
+  <a class="report-link-card" href="/reports/defect"><h2>Defect Report</h2><p>Analyze defects by type, severity, status, and creation date.</p></a>
+  <a class="report-link-card" href="/reports/factory"><h2>Factory Report</h2><p>Compare pass/fail inspection counts across factories.</p></a>
+  <a class="report-link-card" href="/reports/batch"><h2>Batch Report</h2><p>Review inspection history and defect counts by batch.</p></a>
+</section>
+{% endblock %}
