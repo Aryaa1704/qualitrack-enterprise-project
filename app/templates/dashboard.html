@@ -20,24 +20,24 @@
 <section class="dashboard-grid" aria-label="Dashboard charts">
   <article class="chart-card">
     <div class="chart-heading"><h2>Inspection Trend</h2><p>Daily inspection volume over the last 30 days.</p></div>
-    <canvas id="trend-chart" aria-label="Inspection trend chart" role="img"></canvas>
+    <div class="chart-shell"><div class="chart-loading" id="trend-chart-loading">Loading chart…</div><canvas id="trend-chart" aria-label="Inspection trend chart" role="img"></canvas></div>
   </article>
   <article class="chart-card">
     <div class="chart-heading"><h2>Pass vs Fail</h2><p>Current quality outcome distribution.</p></div>
-    <canvas id="status-chart" aria-label="Pass fail distribution chart" role="img"></canvas>
+    <div class="chart-shell"><div class="chart-loading" id="status-chart-loading">Loading chart…</div><canvas id="status-chart" aria-label="Pass fail distribution chart" role="img"></canvas></div>
   </article>
   <article class="chart-card">
     <div class="chart-heading"><h2>Most Common Defects</h2><p>Defect types grouped by frequency.</p></div>
-    <canvas id="defects-chart" aria-label="Most common defects chart" role="img"></canvas>
+    <div class="chart-shell"><div class="chart-loading" id="defects-chart-loading">Loading chart…</div><canvas id="defects-chart" aria-label="Most common defects chart" role="img"></canvas></div>
   </article>
   <article class="chart-card">
     <div class="chart-heading"><h2>Top Inspectors</h2><p>Inspection counts grouped by inspector.</p></div>
-    <canvas id="inspectors-chart" aria-label="Top inspectors chart" role="img"></canvas>
+    <div class="chart-shell"><div class="chart-loading" id="inspectors-chart-loading">Loading chart…</div><canvas id="inspectors-chart" aria-label="Top inspectors chart" role="img"></canvas></div>
   </article>
 </section>
 
 <section class="recent-activity" aria-labelledby="recent-activity-title">
-  <div class="section-heading"><h2 id="recent-activity-title">Recent Activity</h2><a class="button button-secondary" href="/activity-logs">View all activity</a></div>
+  <div class="section-heading"><h2 id="recent-activity-title">Recent Activity</h2><a class="button button-secondary" href="/activity-logs"><svg class="icon"><use href="#icon-activity"></use></svg>View all activity</a></div>
   {% if recent_activity %}
     <div class="activity-feed">
       {% for item in recent_activity %}
@@ -74,6 +74,11 @@
     return counts.length ? counts : [0];
   }
 
+  function hideChartLoading(id) {
+    const loading = document.getElementById(`${id}-loading`);
+    if (loading) loading.classList.add("is-hidden");
+  }
+
   async function loadDashboard() {
     const [summary, trend, defects, inspectors] = await Promise.all([
       fetchJson("/dashboard/summary"),
@@ -88,24 +93,28 @@
     setMetric("pending-inspections", summary.pending_inspections);
     setMetric("critical-defects", summary.critical_defects);
 
+    hideChartLoading("trend-chart");
     new Chart(document.getElementById("trend-chart"), {
       type: "line",
       data: { labels: trend.labels, datasets: [{ label: "Inspections", data: trend.counts, borderColor: chartColors[0], backgroundColor: "rgba(29, 78, 216, 0.14)", tension: 0.25, fill: true }] },
       options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
     });
 
+    hideChartLoading("status-chart");
     new Chart(document.getElementById("status-chart"), {
       type: "doughnut",
       data: { labels: ["Pass", "Fail"], datasets: [{ data: [summary.pass_percent, summary.fail_percent], backgroundColor: [chartColors[1], chartColors[2]] }] },
       options: { responsive: true }
     });
 
+    hideChartLoading("defects-chart");
     new Chart(document.getElementById("defects-chart"), {
       type: "bar",
       data: { labels: emptyAwareLabels(defects.labels), datasets: [{ label: "Defects", data: emptyAwareCounts(defects.counts), backgroundColor: chartColors }] },
       options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
     });
 
+    hideChartLoading("inspectors-chart");
     new Chart(document.getElementById("inspectors-chart"), {
       type: "bar",
       data: { labels: emptyAwareLabels(inspectors.labels), datasets: [{ label: "Inspections", data: emptyAwareCounts(inspectors.counts), backgroundColor: chartColors[0] }] },
