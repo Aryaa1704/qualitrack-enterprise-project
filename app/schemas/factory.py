@@ -1,6 +1,6 @@
 """Pydantic schemas for factory management."""
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -171,6 +171,94 @@ class MachineList(BaseModel):
     """Paginated machine list response."""
 
     items: list[MachineRead]
+    page: int
+    per_page: int
+    total: int
+    pages: int
+
+
+class ProductBase(BaseModel):
+    """Shared product fields."""
+
+    name: str = Field(min_length=1, max_length=120)
+    category: str = Field(min_length=1, max_length=80)
+    sku_code: str = Field(min_length=1, max_length=50)
+    status: str = Field(default="active", pattern="^(active|inactive)$")
+
+
+class ProductCreate(ProductBase):
+    """Data required to create a product."""
+
+
+class ProductUpdate(BaseModel):
+    """Data allowed when updating a product."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    category: str | None = Field(default=None, min_length=1, max_length=80)
+    sku_code: str | None = Field(default=None, min_length=1, max_length=50)
+    status: str | None = Field(default=None, pattern="^(active|inactive)$")
+
+
+class ProductRead(ProductBase):
+    """Product details returned by the API."""
+
+    id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProductList(BaseModel):
+    """Paginated product list response."""
+
+    items: list[ProductRead]
+    page: int
+    per_page: int
+    total: int
+    pages: int
+
+
+class BatchBase(BaseModel):
+    """Shared batch fields."""
+
+    product_id: int
+    production_line_id: int
+    batch_number: str = Field(min_length=1, max_length=50)
+    manufacturing_date: date
+    expiry_date: date
+    quantity: int = Field(gt=0)
+    status: str = Field(default="planned", pattern="^(planned|in_progress|completed|expired|inactive)$")
+
+
+class BatchCreate(BatchBase):
+    """Data required to create a batch."""
+
+
+class BatchUpdate(BaseModel):
+    """Data allowed when updating a batch."""
+
+    product_id: int | None = None
+    production_line_id: int | None = None
+    batch_number: str | None = Field(default=None, min_length=1, max_length=50)
+    manufacturing_date: date | None = None
+    expiry_date: date | None = None
+    quantity: int | None = Field(default=None, gt=0)
+    status: str | None = Field(default=None, pattern="^(planned|in_progress|completed|expired|inactive)$")
+
+
+class BatchRead(BatchBase):
+    """Batch details returned by the API."""
+
+    id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BatchList(BaseModel):
+    """Paginated batch list response."""
+
+    items: list[BatchRead]
     page: int
     per_page: int
     total: int
