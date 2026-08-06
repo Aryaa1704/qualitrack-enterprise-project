@@ -1,0 +1,6 @@
+<div class="filter-panel-common">
+  <select name="sort_by" aria-label="Sort by">{% for value, label in sort_options %}<option value="{{ value }}" {% if sort_by == value %}selected{% endif %}>Sort: {{ label }}</option>{% endfor %}</select>
+  <select name="sort_order" aria-label="Sort order"><option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option><option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option></select>
+  <select name="page_size" aria-label="Page size">{% for size in [5, 10, 25, 50] %}<option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }} per page</option>{% endfor %}</select>
+  <button class="button" type="submit">Apply</button>
+</div>

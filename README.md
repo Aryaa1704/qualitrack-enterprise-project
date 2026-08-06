@@ -21,6 +21,7 @@ Think of this phase like preparing an empty factory building before machines arr
 - **Batches**: authenticated users can assign product batches to production lines, validate manufacturing/expiry dates, enforce unique batch numbers, filter by relationship/status/date range, and view product batch history.
 - **Dashboard analytics**: authenticated users can view live inspection summaries, pass/fail rates, 30-day trends, top defects, top inspectors, and recent inspections.
 - **Reports**: authenticated users can review inspection, defect, factory, and batch reports with matching CSV exports.
+- **Global search and standardized filters**: authenticated users can search products, batches, inspections, and defects from the nav, and list pages share search, sorting, and page-size controls.
 
 ## Project structure
 
@@ -99,6 +100,7 @@ Then open:
 - Machines: open a factory detail page, then use the Machines section under its production lines.
 - Dashboard: <http://127.0.0.1:8000/dashboard>
 - Reports: <http://127.0.0.1:8000/reports>
+- Global search: <http://127.0.0.1:8000/search?q=sample>
 
 
 ## Report endpoints
@@ -128,7 +130,7 @@ alembic upgrade head
 ## Factory endpoints
 
 - `POST /factories` creates a factory.
-- `GET /factories` returns a paginated factory list.
+- `GET /factories` returns a paginated factory list with `search`, `sort_by`, `sort_order`, `page`, and `page_size` query parameters.
 - `GET /factories/{factory_id}` returns one factory.
 - `PUT /factories/{factory_id}` updates a factory.
 - `DELETE /factories/{factory_id}` soft-deletes a factory by marking it inactive.
@@ -158,7 +160,7 @@ alembic upgrade head
 ## Product endpoints
 
 - `POST /products` creates a product.
-- `GET /products` returns products with search, category, status, and pagination filters.
+- `GET /products` returns products with search, category, status, sorting, and pagination filters.
 - `GET /products/{product_id}` returns one product; browser views include batch history.
 - `PUT /products/{product_id}` updates a product.
 - `DELETE /products/{product_id}` soft-deletes a product by marking it inactive.
@@ -166,7 +168,7 @@ alembic upgrade head
 ## Batch endpoints
 
 - `POST /batches` creates a batch assigned to a product and production line.
-- `GET /batches` returns batches with search, product, production line, status, manufacturing date range, and pagination filters.
+- `GET /batches` returns batches with search, product, production line, status, manufacturing date range, sorting, and pagination filters.
 - `GET /batches/{batch_id}` returns one batch.
 - `PUT /batches/{batch_id}` updates a batch.
 - `DELETE /batches/{batch_id}` soft-deletes a batch by marking it inactive.
@@ -191,7 +193,7 @@ Failed inspections can have one or more linked defects. Authenticated users can 
 ## Defect endpoints
 
 - `POST /defects` creates a defect linked to a failed inspection.
-- `GET /defects` returns defects with type, severity, status, created-date range, and pagination filters.
+- `GET /defects` returns defects with search, type, severity, status, created-date range, sorting, and pagination filters.
 - `GET /defects/stats` returns defect counts grouped by type and by severity.
 - `GET /defects/{defect_id}` returns one defect.
 - `PUT /defects/{defect_id}` updates a defect and automatically sets `resolved_date` when status becomes `Resolved`.
