@@ -695,3 +695,99 @@ def test_inspection_workflow_calculation_inspector_history_edit_delete_and_filte
     updated_history_response = auth_client.get(f"/inspections/batch/{batch['id']}/history")
     assert updated_history_response.status_code == 200
     assert len(updated_history_response.json()) == 1
+
+
+def test_openapi_schema_includes_defect_endpoints() -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert "/defects" in paths
+    assert "/defects/stats" in paths
+    assert "/defects/{defect_id}" in paths
+    assert {"post", "get"}.issubset(paths["/defects"])
+    assert {"get", "put", "delete"}.issubset(paths["/defects/{defect_id}"])
+    assert "get" in paths["/defects/stats"]
+
+
+def test_defect_crud_filters_stats_resolution_and_html_flow() -> None:
+    auth_client = _authenticated_client()
+    batch = _create_batch(auth_client)
+    pass_response = auth_client.post("/inspections", json=_inspection_payload(batch["id"]))
+    fail_response = auth_client.post(
+        "/inspections",
+        json=_inspection_payload(batch["id"], scratch="fail", remarks="Scratch found during final inspection", inspection_score=72),
+    )
+    assert pass_response.status_code == 201
+    assert fail_response.status_code == 201
+    pass_inspection = pass_response.json()
+    fail_inspection = fail_response.json()
+
+    rejected_response = auth_client.post(
+        "/defects",
+        json={
+            "inspection_id": pass_inspection["id"],
+            "defect_type": "Scratch",
+            "severity": "Low",
+            "description": "Should not attach to passed inspection",
+        },
+    )
+    assert rejected_response.status_code == 422
+
+    create_response = auth_client.post(
+        "/defects",
+        json={
+            "inspection_id": fail_inspection["id"],
+            "defect_type": "Scratch",
+            "severity": "High",
+            "description": "Deep scratch on product housing",
+            "corrective_action": "Route to rework",
+            "status": "Open",
+        },
+    )
+    assert create_response.status_code == 201
+    defect = create_response.json()
+    assert defect["inspection_id"] == fail_inspection["id"]
+    assert defect["resolved_date"] is None
+
+    html_detail_response = auth_client.get(f"/inspections/{fail_inspection['id']}", headers={"accept": "text/html"})
+    assert html_detail_response.status_code == 200
+    assert "Add Defect" in html_detail_response.text
+    assert "Deep scratch on product housing" in html_detail_response.text
+    assert "Scratch" in html_detail_response.text
+
+    second_response = auth_client.post(
+        "/defects",
+        json={
+            "inspection_id": fail_inspection["id"],
+            "defect_type": "Crack",
+            "severity": "Medium",
+            "description": "Hairline crack on bracket",
+            "status": "In Progress",
+        },
+    )
+    assert second_response.status_code == 201
+
+    resolve_response = auth_client.put(
+        f"/defects/{defect['id']}",
+        json={"status": "Resolved", "corrective_action": "Housing replaced"},
+    )
+    assert resolve_response.status_code == 200
+    assert resolve_response.json()["status"] == "Resolved"
+    assert resolve_response.json()["resolved_date"] is not None
+
+    filter_response = auth_client.get("/defects?defect_type=Scratch&severity=High&status_filter=Resolved")
+    assert filter_response.status_code == 200
+    assert filter_response.json()["total"] == 1
+    assert filter_response.json()["items"][0]["id"] == defect["id"]
+
+    stats_response = auth_client.get("/defects/stats")
+    assert stats_response.status_code == 200
+    stats = stats_response.json()
+    assert stats["by_type"]["Scratch"] >= 1
+    assert stats["by_type"]["Crack"] >= 1
+    assert stats["by_severity"]["High"] >= 1
+    assert stats["by_severity"]["Medium"] >= 1
+
+    delete_response = auth_client.delete(f"/defects/{defect['id']}")
+    assert delete_response.status_code == 200

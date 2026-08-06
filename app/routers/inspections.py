@@ -179,8 +179,11 @@ def batch_inspection_history(batch_id: int, db: Annotated[Session, Depends(get_d
 
 
 @router.get("/{inspection_id}", response_model=InspectionRead)
-def get_inspection(inspection_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Inspection:
-    return _get_inspection_or_404(db, inspection_id)
+def get_inspection(inspection_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Inspection | HTMLResponse:
+    inspection = _get_inspection_or_404(db, inspection_id)
+    if _wants_html(request):
+        return templates.TemplateResponse("inspections/detail.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspection": inspection})
+    return inspection
 
 
 @router.get("/{inspection_id}/edit", response_class=HTMLResponse, include_in_schema=False)
