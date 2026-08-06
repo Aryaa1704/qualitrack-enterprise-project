@@ -1,6 +1,44 @@
 """Pydantic schemas for QualiTrack."""
 
-from app.schemas.factory import FactoryCreate, FactoryList, FactoryRead, FactoryUpdate
+from app.schemas.factory import (
+    BatchCreate,
+    BatchList,
+    BatchRead,
+    BatchUpdate,
+    FactoryCreate,
+    FactoryList,
+    FactoryRead,
+    FactoryUpdate,
+    InspectionCreate,
+    InspectionList,
+    InspectionRead,
+    InspectionUpdate,
+    ProductCreate,
+    ProductList,
+    ProductRead,
+    ProductUpdate,
+)
 from app.schemas.user import Token, TokenData, UserCreate, UserRead
 
-__all__ = ["FactoryCreate", "FactoryList", "FactoryRead", "FactoryUpdate", "Token", "TokenData", "UserCreate", "UserRead"]
+__all__ = [
+    "BatchCreate",
+    "BatchList",
+    "BatchRead",
+    "BatchUpdate",
+    "FactoryCreate",
+    "FactoryList",
+    "FactoryRead",
+    "FactoryUpdate",
+    "InspectionCreate",
+    "InspectionList",
+    "InspectionRead",
+    "InspectionUpdate",
+    "ProductCreate",
+    "ProductList",
+    "ProductRead",
+    "ProductUpdate",
+    "Token",
+    "TokenData",
+    "UserCreate",
+    "UserRead",
+]

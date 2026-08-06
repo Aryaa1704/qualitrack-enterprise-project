@@ -1,6 +1,6 @@
 """Pydantic schemas for factory management."""
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -171,6 +171,162 @@ class MachineList(BaseModel):
     """Paginated machine list response."""
 
     items: list[MachineRead]
+    page: int
+    per_page: int
+    total: int
+    pages: int
+
+
+class ProductBase(BaseModel):
+    """Shared product fields."""
+
+    name: str = Field(min_length=1, max_length=120)
+    category: str = Field(min_length=1, max_length=80)
+    sku_code: str = Field(min_length=1, max_length=50)
+    status: str = Field(default="active", pattern="^(active|inactive)$")
+
+
+class ProductCreate(ProductBase):
+    """Data required to create a product."""
+
+
+class ProductUpdate(BaseModel):
+    """Data allowed when updating a product."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    category: str | None = Field(default=None, min_length=1, max_length=80)
+    sku_code: str | None = Field(default=None, min_length=1, max_length=50)
+    status: str | None = Field(default=None, pattern="^(active|inactive)$")
+
+
+class ProductRead(ProductBase):
+    """Product details returned by the API."""
+
+    id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProductList(BaseModel):
+    """Paginated product list response."""
+
+    items: list[ProductRead]
+    page: int
+    per_page: int
+    total: int
+    pages: int
+
+
+class BatchBase(BaseModel):
+    """Shared batch fields."""
+
+    product_id: int
+    production_line_id: int
+    batch_number: str = Field(min_length=1, max_length=50)
+    manufacturing_date: date
+    expiry_date: date
+    quantity: int = Field(gt=0)
+    status: str = Field(default="planned", pattern="^(planned|in_progress|completed|expired|inactive)$")
+
+
+class BatchCreate(BatchBase):
+    """Data required to create a batch."""
+
+
+class BatchUpdate(BaseModel):
+    """Data allowed when updating a batch."""
+
+    product_id: int | None = None
+    production_line_id: int | None = None
+    batch_number: str | None = Field(default=None, min_length=1, max_length=50)
+    manufacturing_date: date | None = None
+    expiry_date: date | None = None
+    quantity: int | None = Field(default=None, gt=0)
+    status: str | None = Field(default=None, pattern="^(planned|in_progress|completed|expired|inactive)$")
+
+
+class BatchRead(BatchBase):
+    """Batch details returned by the API."""
+
+    id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BatchList(BaseModel):
+    """Paginated batch list response."""
+
+    items: list[BatchRead]
+    page: int
+    per_page: int
+    total: int
+    pages: int
+
+
+class InspectionBase(BaseModel):
+    """Shared inspection fields."""
+
+    batch_id: int
+    scratch: str = Field(pattern="^(pass|fail)$")
+    color: str = Field(pattern="^(pass|fail)$")
+    weight_actual: float = Field(ge=0)
+    weight_spec: float = Field(gt=0)
+    dimensions_actual: str = Field(min_length=1, max_length=120)
+    dimensions_spec: str = Field(min_length=1, max_length=120)
+    packaging: str = Field(pattern="^(pass|fail)$")
+    functional_test: str = Field(pattern="^(pass|fail)$")
+    overall_status: str | None = Field(default=None, pattern="^(Pass|Fail)$")
+    remarks: str = Field(default="", max_length=2000)
+
+
+class InspectionCreate(InspectionBase):
+    """Data required to create an inspection."""
+
+
+class InspectionUpdate(BaseModel):
+    """Data allowed when updating an inspection."""
+
+    batch_id: int | None = None
+    scratch: str | None = Field(default=None, pattern="^(pass|fail)$")
+    color: str | None = Field(default=None, pattern="^(pass|fail)$")
+    weight_actual: float | None = Field(default=None, ge=0)
+    weight_spec: float | None = Field(default=None, gt=0)
+    dimensions_actual: str | None = Field(default=None, min_length=1, max_length=120)
+    dimensions_spec: str | None = Field(default=None, min_length=1, max_length=120)
+    packaging: str | None = Field(default=None, pattern="^(pass|fail)$")
+    functional_test: str | None = Field(default=None, pattern="^(pass|fail)$")
+    overall_status: str | None = Field(default=None, pattern="^(Pass|Fail)$")
+    remarks: str | None = Field(default=None, max_length=2000)
+
+
+class InspectionRead(BaseModel):
+    """Inspection details returned by the API."""
+
+    id: int
+    batch_id: int
+    inspector_id: int
+    inspection_date: datetime
+    scratch: str
+    color: str
+    weight_actual: float
+    weight_spec: float
+    dimensions_actual: str
+    dimensions_spec: str
+    packaging: str
+    functional_test: str
+    overall_status: str
+    inspection_score: float
+    remarks: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InspectionList(BaseModel):
+    """Paginated inspection list response."""
+
+    items: list[InspectionRead]
     page: int
     per_page: int
     total: int

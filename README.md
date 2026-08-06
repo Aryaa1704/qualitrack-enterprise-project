@@ -2,7 +2,7 @@
 
 QualiTrack is a Manufacturing Quality Inspection & Defect Analytics Platform.
 
-This repository contains the Phase 4 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, and factory management, departments, production lines, and machines. It does not include role permissions, products, or batches yet.
+This repository contains the Phase 6 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, factory management, departments, production lines, machines, products, production batches, and quality inspections. It does not include role permissions, defect linking, or dashboard charts yet.
 
 ## For builders: what this means in simple words
 
@@ -17,6 +17,9 @@ Think of this phase like preparing an empty factory building before machines arr
 - **Factory management**: authenticated users can create, review, update, and soft-delete factories.
 - **Departments and production lines**: authenticated users can manage factory-scoped departments and production lines, including optional department grouping for lines.
 - **Machines**: authenticated users can manage equipment under production lines, change machine status, and filter machines by status, production line, or factory.
+- **Products**: authenticated users can manage product catalog records, enforce unique SKU codes, and search/filter product lists.
+- **Batches**: authenticated users can assign product batches to production lines, validate manufacturing/expiry dates, enforce unique batch numbers, filter by relationship/status/date range, and view product batch history.
+- **Inspections**: authenticated inspectors can record batch quality checks, auto-calculate pass/fail status and score, justify overrides, and review inspection history per batch.
 
 ## Project structure
 
@@ -90,6 +93,9 @@ Then open:
 - Login: <http://127.0.0.1:8000/auth/login>
 - Profile: <http://127.0.0.1:8000/auth/profile>
 - Factories: <http://127.0.0.1:8000/factories>
+- Products: <http://127.0.0.1:8000/products>
+- Batches: <http://127.0.0.1:8000/batches>
+- Inspections: <http://127.0.0.1:8000/inspections>
 - Machines: open a factory detail page, then use the Machines section under its production lines.
 
 
@@ -136,7 +142,34 @@ alembic upgrade head
 - `PATCH /factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}/status` changes only the machine status.
 - `DELETE /factories/{factory_id}/production-lines/{line_id}/machines/{machine_id}` soft-deletes a machine by marking it inactive.
 
-Factory, department, production line, and machine pages and APIs require an authenticated user session.
+## Product endpoints
+
+- `POST /products` creates a product.
+- `GET /products` returns products with search, category, status, and pagination filters.
+- `GET /products/{product_id}` returns one product; browser views include batch history.
+- `PUT /products/{product_id}` updates a product.
+- `DELETE /products/{product_id}` soft-deletes a product by marking it inactive.
+
+## Batch endpoints
+
+- `POST /batches` creates a batch assigned to a product and production line.
+- `GET /batches` returns batches with search, product, production line, status, manufacturing date range, and pagination filters.
+- `GET /batches/{batch_id}` returns one batch.
+- `PUT /batches/{batch_id}` updates a batch.
+- `DELETE /batches/{batch_id}` soft-deletes a batch by marking it inactive.
+
+## Inspection endpoints
+
+- `POST /inspections` creates an inspection for a batch and attributes it to the logged-in inspector.
+- `GET /inspections` returns inspections with search, product, batch, inspector, status, date range, and pagination filters.
+- `GET /inspections/search` searches inspections by product, SKU, or batch number.
+- `GET /inspections/filter` filters inspections by product, batch, inspector, status, and date range.
+- `GET /inspections/{inspection_id}` returns one inspection.
+- `PUT /inspections/{inspection_id}` updates an inspection without changing its original inspector.
+- `DELETE /inspections/{inspection_id}` deletes an inspection record.
+- `GET /batches/{batch_id}/inspections` returns inspection history for one batch.
+
+Factory, department, production line, machine, product, batch, and inspection pages and APIs require an authenticated user session.
 
 ## Tests
 
