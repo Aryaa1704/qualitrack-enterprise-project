@@ -13,7 +13,7 @@ from app.core.config import get_settings
 from app.database.session import get_db
 from app.models.factory import Batch, Defect, Inspection
 from app.models.user import User
-from app.routers.auth import get_current_user, get_optional_current_user
+from app.routers.auth import ADMIN, QUALITY_MANAGER, get_current_user, get_optional_current_user, redirect_if_forbidden, require_role
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 templates = Jinja2Templates(directory="app/templates")
@@ -46,6 +46,9 @@ def dashboard_page(request: Request, db: Annotated[Session, Depends(get_db)]) ->
     current_user = get_optional_current_user(request, db)
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    forbidden = redirect_if_forbidden(current_user, ADMIN, QUALITY_MANAGER)
+    if forbidden is not None:
+        return forbidden
     return templates.TemplateResponse(
         "dashboard.html",
         {
@@ -59,7 +62,7 @@ def dashboard_page(request: Request, db: Annotated[Session, Depends(get_db)]) ->
 
 
 @router.get("/summary")
-def dashboard_summary(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> dict[str, int | float]:
+def dashboard_summary(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER))]) -> dict[str, int | float]:
     """Return top-line dashboard quality metrics from live production data."""
 
     today = _today_iso()
@@ -82,7 +85,7 @@ def dashboard_summary(db: Annotated[Session, Depends(get_db)], current_user: Ann
 
 
 @router.get("/trend")
-def dashboard_trend(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> dict[str, list[int] | list[str]]:
+def dashboard_trend(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER))]) -> dict[str, list[int] | list[str]]:
     """Return daily inspection counts for the last 30 days."""
 
     labels = _last_30_days()
@@ -98,7 +101,7 @@ def dashboard_trend(db: Annotated[Session, Depends(get_db)], current_user: Annot
 
 
 @router.get("/top-defects")
-def dashboard_top_defects(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> dict[str, list[int] | list[str]]:
+def dashboard_top_defects(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER))]) -> dict[str, list[int] | list[str]]:
     """Return most common defect types for dashboard charting."""
 
     rows = db.execute(select(Defect.defect_type, func.count(Defect.id)).group_by(Defect.defect_type).order_by(func.count(Defect.id).desc(), Defect.defect_type).limit(8)).all()
@@ -106,7 +109,7 @@ def dashboard_top_defects(db: Annotated[Session, Depends(get_db)], current_user:
 
 
 @router.get("/top-inspector")
-def dashboard_top_inspector(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> dict[str, list[int] | list[str]]:
+def dashboard_top_inspector(db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER))]) -> dict[str, list[int] | list[str]]:
     """Return inspection counts grouped by inspector."""
 
     rows = db.execute(

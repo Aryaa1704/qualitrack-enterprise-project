@@ -14,7 +14,7 @@ from app.schemas.factory import (
     ProductRead,
     ProductUpdate,
 )
-from app.schemas.user import Token, TokenData, UserCreate, UserRead
+from app.schemas.user import Token, TokenData, UserCreate, UserRead, UserRoleUpdate
 
 __all__ = [
     "BatchCreate",
@@ -33,4 +33,5 @@ __all__ = [
     "TokenData",
     "UserCreate",
     "UserRead",
+    "UserRoleUpdate",
 ]

@@ -2,8 +2,8 @@
 
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_, select
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.database.session import get_db
-from app.routers.auth import get_optional_current_user, router as auth_router
+from app.routers.auth import ADMIN, INSPECTOR, QUALITY_MANAGER, get_optional_current_user, require_role, router as auth_router
 from app.routers.batches import router as batches_router
 from app.routers.defects import router as defects_router
 from app.routers.dashboard import router as dashboard_router
@@ -42,6 +42,15 @@ app.include_router(reports_router)
 templates = Jinja2Templates(directory="app/templates")
 
 
+@app.exception_handler(HTTPException)
+async def html_forbidden_redirect(request: Request, exc: HTTPException):
+    """Redirect browser users to a not-authorized page while preserving API 403 responses."""
+
+    if exc.status_code == status.HTTP_403_FORBIDDEN and "text/html" in request.headers.get("accept", "") and request.url.path != "/auth/not-authorized":
+        return RedirectResponse(url="/auth/not-authorized", status_code=status.HTTP_303_SEE_OTHER)
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
 @app.get("/", response_class=HTMLResponse, tags=["Pages"])
 def home(request: Request, current_user: Annotated[object | None, Depends(get_optional_current_user)] = None) -> HTMLResponse:
     """Render the public home page."""
@@ -58,7 +67,7 @@ def home(request: Request, current_user: Annotated[object | None, Depends(get_op
 
 
 @app.get("/search", tags=["Search"], response_model=None)
-def global_search(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[object, Depends(get_optional_current_user)], q: str = "") -> dict[str, list[dict[str, object]]] | HTMLResponse:
+def global_search(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[object, Depends(require_role(ADMIN, QUALITY_MANAGER, INSPECTOR))], q: str = "") -> dict[str, list[dict[str, object]]] | HTMLResponse:
     """Search products, batches, inspections, and defects and return grouped results."""
 
     if current_user is None:

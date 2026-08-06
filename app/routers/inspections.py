@@ -15,7 +15,7 @@ from app.core.config import get_settings
 from app.database.session import get_db
 from app.models.factory import Batch, Inspection, Product
 from app.models.user import User
-from app.routers.auth import get_current_user, get_optional_current_user
+from app.routers.auth import ADMIN, INSPECTOR, QUALITY_MANAGER, get_current_user, get_optional_current_user, redirect_if_forbidden, require_role
 from app.schemas.factory import InspectionCreate, InspectionList, InspectionRead, InspectionUpdate
 
 router = APIRouter(prefix="/inspections", tags=["Inspections"])
@@ -139,7 +139,7 @@ def new_inspection_page(request: Request, db: Annotated[Session, Depends(get_db)
 
 
 @router.post("", response_model=InspectionRead, status_code=status.HTTP_201_CREATED)
-async def create_inspection(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Inspection | RedirectResponse:
+async def create_inspection(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER, INSPECTOR))]) -> Inspection | RedirectResponse:
     payload = await _inspection_payload(request)
     payload["overall_status"] = _final_status(payload)
     inspection_data = InspectionCreate(**payload)
@@ -152,7 +152,7 @@ async def create_inspection(request: Request, db: Annotated[Session, Depends(get
 
 
 @router.get("", response_model=InspectionList)
-def list_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, sort_by: str = "inspection_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> InspectionList | HTMLResponse:
+def list_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER, INSPECTOR))], search: str | None = None, product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, sort_by: str = "inspection_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> InspectionList | HTMLResponse:
     page, per_page = _pagination(page, per_page, page_size)
     query = _inspection_query(search, product_id, batch_id, inspector_id, status_filter, start_date, end_date)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
@@ -168,23 +168,23 @@ def list_inspections(request: Request, db: Annotated[Session, Depends(get_db)], 
 
 
 @router.get("/search", response_model=InspectionList)
-def search_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], q: str | None = None, status_filter: str | None = None, sort_by: str = "inspection_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> InspectionList | HTMLResponse:
+def search_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER, INSPECTOR))], q: str | None = None, status_filter: str | None = None, sort_by: str = "inspection_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> InspectionList | HTMLResponse:
     return list_inspections(request, db, current_user, search=q, status_filter=status_filter, sort_by=sort_by, sort_order=sort_order, page=page, page_size=page_size, per_page=per_page)
 
 
 @router.get("/filter", response_model=InspectionList)
-def filter_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, sort_by: str = "inspection_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> InspectionList | HTMLResponse:
+def filter_inspections(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER, INSPECTOR))], product_id: int | None = None, batch_id: int | None = None, inspector_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, sort_by: str = "inspection_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> InspectionList | HTMLResponse:
     return list_inspections(request, db, current_user, product_id=product_id, batch_id=batch_id, inspector_id=inspector_id, status_filter=status_filter, start_date=start_date, end_date=end_date, sort_by=sort_by, sort_order=sort_order, page=page, page_size=page_size, per_page=per_page)
 
 
 @router.get("/batch/{batch_id}/history", response_model=list[InspectionRead])
-def batch_inspection_history(batch_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> list[Inspection]:
+def batch_inspection_history(batch_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER, INSPECTOR))]) -> list[Inspection]:
     _ensure_batch(db, batch_id)
     return list(db.scalars(select(Inspection).where(Inspection.batch_id == batch_id).order_by(Inspection.inspection_date.desc(), Inspection.id.desc())).all())
 
 
 @router.get("/{inspection_id}", response_model=InspectionRead)
-def get_inspection(inspection_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Inspection | HTMLResponse:
+def get_inspection(inspection_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER, INSPECTOR))]) -> Inspection | HTMLResponse:
     inspection = _get_inspection_or_404(db, inspection_id)
     if _wants_html(request):
         return templates.TemplateResponse("inspections/detail.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspection": inspection})
@@ -201,7 +201,7 @@ def edit_inspection_page(inspection_id: int, request: Request, db: Annotated[Ses
 
 
 @router.put("/{inspection_id}", response_model=InspectionRead)
-async def update_inspection(inspection_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Inspection:
+async def update_inspection(inspection_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER, INSPECTOR))]) -> Inspection:
     inspection = _get_inspection_or_404(db, inspection_id)
     payload = await _inspection_payload(request, partial=True)
     if "batch_id" in payload:
@@ -224,7 +224,7 @@ async def update_inspection_from_form(inspection_id: int, request: Request, db: 
 
 
 @router.delete("/{inspection_id}", response_model=InspectionRead)
-def delete_inspection(inspection_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Inspection:
+def delete_inspection(inspection_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER, INSPECTOR))]) -> Inspection:
     inspection = _get_inspection_or_404(db, inspection_id)
     db.delete(inspection); db.commit()
     return inspection

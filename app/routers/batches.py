@@ -15,7 +15,7 @@ from app.core.config import get_settings
 from app.database.session import get_db
 from app.models.factory import Batch, Inspection, Product, ProductionLine
 from app.models.user import User
-from app.routers.auth import get_current_user, get_optional_current_user
+from app.routers.auth import ADMIN, QUALITY_MANAGER, get_current_user, get_optional_current_user, redirect_if_forbidden, require_role
 from app.schemas.factory import BatchCreate, BatchList, BatchRead, BatchUpdate
 
 router = APIRouter(prefix="/batches", tags=["Batches"])
@@ -116,11 +116,14 @@ def new_batch_page(request: Request, db: Annotated[Session, Depends(get_db)], pr
     current_user = get_optional_current_user(request, db)
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    forbidden = redirect_if_forbidden(current_user, ADMIN)
+    if forbidden is not None:
+        return forbidden
     return templates.TemplateResponse("batches/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batch": None, "selected_product_id": product_id, "form_action": "/batches", "form_title": "New Batch", **_form_options(db)})
 
 
 @router.post("", response_model=BatchRead, status_code=status.HTTP_201_CREATED)
-async def create_batch(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Batch | RedirectResponse:
+async def create_batch(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN))]) -> Batch | RedirectResponse:
     batch_data = BatchCreate(**await _batch_payload(request))
     _ensure_product(db, batch_data.product_id)
     _ensure_production_line(db, batch_data.production_line_id)
@@ -134,7 +137,7 @@ async def create_batch(request: Request, db: Annotated[Session, Depends(get_db)]
 
 
 @router.get("", response_model=BatchList)
-def list_batches(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)], search: str | None = None, product_id: int | None = None, production_line_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, sort_by: str = "manufacturing_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> BatchList | HTMLResponse:
+def list_batches(request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER))], search: str | None = None, product_id: int | None = None, production_line_id: int | None = None, status_filter: str | None = None, start_date: date | None = None, end_date: date | None = None, sort_by: str = "manufacturing_date", sort_order: str = "desc", page: int = 1, page_size: int | None = None, per_page: int = 10) -> BatchList | HTMLResponse:
     page, per_page = _pagination(page, per_page, page_size)
     query = select(Batch)
     if search:
@@ -163,7 +166,7 @@ def list_batches(request: Request, db: Annotated[Session, Depends(get_db)], curr
 
 
 @router.get("/{batch_id}", response_model=BatchRead)
-def get_batch(batch_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Batch | HTMLResponse:
+def get_batch(batch_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER))]) -> Batch | HTMLResponse:
     batch = _get_batch_or_404(db, batch_id)
     if _wants_html(request):
         inspections = list(db.scalars(select(Inspection).where(Inspection.batch_id == batch.id).order_by(Inspection.inspection_date.desc(), Inspection.id.desc())).all())
@@ -176,12 +179,15 @@ def edit_batch_page(batch_id: int, request: Request, db: Annotated[Session, Depe
     current_user = get_optional_current_user(request, db)
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    forbidden = redirect_if_forbidden(current_user, ADMIN)
+    if forbidden is not None:
+        return forbidden
     batch = _get_batch_or_404(db, batch_id)
     return templates.TemplateResponse("batches/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batch": batch, "selected_product_id": batch.product_id, "form_action": f"/batches/{batch.id}/edit", "form_title": "Edit Batch", **_form_options(db)})
 
 
 @router.put("/{batch_id}", response_model=BatchRead)
-async def update_batch(batch_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Batch:
+async def update_batch(batch_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN))]) -> Batch:
     batch = _get_batch_or_404(db, batch_id)
     updates = BatchUpdate(**await _batch_payload(request, partial=True)).model_dump(exclude_unset=True)
     if "product_id" in updates:
@@ -209,7 +215,7 @@ async def update_batch_from_form(batch_id: int, request: Request, db: Annotated[
 
 
 @router.delete("/{batch_id}", response_model=BatchRead)
-def delete_batch(batch_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(get_current_user)]) -> Batch:
+def delete_batch(batch_id: int, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN))]) -> Batch:
     batch = _get_batch_or_404(db, batch_id)
     batch.status = "inactive"
     db.commit(); db.refresh(batch)
@@ -221,6 +227,9 @@ def delete_batch_from_form(batch_id: int, request: Request, db: Annotated[Sessio
     current_user = get_optional_current_user(request, db)
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    forbidden = redirect_if_forbidden(current_user, ADMIN)
+    if forbidden is not None:
+        return forbidden
     batch = _get_batch_or_404(db, batch_id)
     batch.status = "inactive"
     db.commit()

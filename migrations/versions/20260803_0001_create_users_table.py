@@ -28,6 +28,7 @@ def upgrade() -> None:
         sa.Column("role", sa.String(length=50), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.CheckConstraint("role in ('admin', 'quality_manager', 'inspector')", name="ck_users_role_valid"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)

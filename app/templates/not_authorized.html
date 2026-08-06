@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Not authorized | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="auth-card" aria-labelledby="not-authorized-title">
+  <p class="eyebrow">Access denied</p>
+  <h1 id="not-authorized-title">You are not authorized to view this page.</h1>
+  <p class="auth-copy">Your current role does not permit this action. Use the navigation options available to your account.</p>
+  <div class="form-actions">
+    <a class="button" href="/auth/profile">Back to profile</a>
+    {% if current_user.role in ['admin', 'quality_manager'] %}<a class="button button-secondary" href="/dashboard">Go to dashboard</a>{% endif %}
+  </div>
+</section>
+{% endblock %}

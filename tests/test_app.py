@@ -42,7 +42,7 @@ def test_openapi_schema_includes_health_auth_and_factory_endpoints() -> None:
     assert "delete" in paths["/factories/{factory_id}"]
 
 
-def _authenticated_client() -> TestClient:
+def _authenticated_client(role: str = "admin") -> TestClient:
     alembic_cfg = Config("alembic.ini")
     command.upgrade(alembic_cfg, "head")
 
@@ -55,6 +55,14 @@ def _authenticated_client() -> TestClient:
         data={"username": username, "email": email, "password": "securepass123"},
     )
     assert register_response.status_code == 201
+    from app.database.session import SessionLocal
+    from app.models.user import User
+    from sqlalchemy import select
+    with SessionLocal() as db:
+        user = db.scalar(select(User).where(User.username == username))
+        assert user is not None
+        user.role = role
+        db.commit()
 
     login_response = auth_client.post(
         "/auth/login",
@@ -1013,3 +1021,21 @@ def test_standard_list_query_parameters_and_global_search() -> None:
     assert grouped["batches"]
     assert grouped["inspections"]
     assert grouped["defects"]
+
+
+def test_rbac_role_permissions_and_admin_role_management() -> None:
+    admin_client = _authenticated_client("admin")
+    manager_client = _authenticated_client("quality_manager")
+    inspector_client = _authenticated_client("inspector")
+
+    assert admin_client.post("/factories", json={"name": "RBAC Plant", "code": f"RB-{uuid4().hex[:6]}", "location": "Detroit, MI"}).status_code == 201
+    assert manager_client.get("/factories").status_code == 200
+    assert manager_client.post("/factories", json={"name": "Manager Plant", "code": f"MP-{uuid4().hex[:6]}", "location": "Detroit, MI"}).status_code == 403
+    assert inspector_client.get("/factories").status_code == 403
+    assert inspector_client.get("/dashboard/summary").status_code == 403
+    assert admin_client.get("/auth/users").status_code == 200
+
+    target = inspector_client.get("/auth/me").json()
+    update_response = admin_client.put(f"/auth/users/{target['id']}/role", json={"role": "quality_manager"})
+    assert update_response.status_code == 200
+    assert update_response.json()["role"] == "quality_manager"
