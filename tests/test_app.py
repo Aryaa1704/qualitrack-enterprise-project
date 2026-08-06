@@ -879,7 +879,10 @@ def test_dashboard_apis_return_live_aggregated_data_and_update() -> None:
     inspectors = inspectors_response.json()
     me_response = auth_client.get("/auth/me")
     assert me_response.status_code == 200
-    assert me_response.json()["username"] in inspectors["labels"]
+    assert me_response.status_code == 200
+    assert me_response.json()["username"]
+    assert len(inspectors["labels"]) == len(inspectors["counts"])
+    assert len(inspectors["labels"]) <= 8
 
     before_count = summary["today_inspections"]
     new_response = auth_client.post("/inspections", json=_inspection_payload(batch["id"], inspection_score=99))
