@@ -2,7 +2,7 @@
 
 QualiTrack is a Manufacturing Quality Inspection & Defect Analytics Platform.
 
-This repository contains the Phase 5 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, factory management, departments, production lines, machines, products, and production batches, inspections, defect tracking, and a live analytics dashboard. It does not include role permissions yet.
+This repository contains the Phase 5 foundation: a FastAPI application shell, template layout, static styling, settings, SQLite/SQLAlchemy wiring, a health-check endpoint, JWT-backed user authentication, factory management, departments, production lines, machines, products, and production batches, inspections, defect tracking, a live analytics dashboard, and read-only reports with CSV exports. It does not include role permissions yet.
 
 ## For builders: what this means in simple words
 
@@ -20,6 +20,7 @@ Think of this phase like preparing an empty factory building before machines arr
 - **Products**: authenticated users can manage product catalog records, enforce unique SKU codes, and search/filter product lists.
 - **Batches**: authenticated users can assign product batches to production lines, validate manufacturing/expiry dates, enforce unique batch numbers, filter by relationship/status/date range, and view product batch history.
 - **Dashboard analytics**: authenticated users can view live inspection summaries, pass/fail rates, 30-day trends, top defects, top inspectors, and recent inspections.
+- **Reports**: authenticated users can review inspection, defect, factory, and batch reports with matching CSV exports.
 
 ## Project structure
 
@@ -97,7 +98,19 @@ Then open:
 - Batches: <http://127.0.0.1:8000/batches>
 - Machines: open a factory detail page, then use the Machines section under its production lines.
 - Dashboard: <http://127.0.0.1:8000/dashboard>
+- Reports: <http://127.0.0.1:8000/reports>
 
+
+## Report endpoints
+
+- `GET /reports/inspection` returns filtered inspection report data or renders the inspection report page.
+- `GET /reports/inspection/export` downloads the filtered inspection report as CSV.
+- `GET /reports/defect` returns filtered defect report data or renders the defect report page.
+- `GET /reports/defect/export` downloads the filtered defect report as CSV.
+- `GET /reports/factory` returns factory-level pass/fail inspection aggregates or renders the factory report page.
+- `GET /reports/factory/export` downloads the factory report as CSV.
+- `GET /reports/batch` returns batch-level inspection and defect counts or renders the batch report page.
+- `GET /reports/batch/export` downloads the batch report as CSV.
 
 ## Authentication endpoints
 

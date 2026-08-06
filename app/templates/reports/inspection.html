@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Inspection Report | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page-header"><div><p class="eyebrow">Reports</p><h1>Inspection Report</h1><p class="section-copy">Filtered inspection outcomes with pass and fail percentages.</p></div><a class="button button-secondary" href="/reports">All reports</a></section>
+<form class="filter-form" method="get" action="/reports/inspection">
+  <select name="product_id"><option value="">All products</option>{% for product in products %}<option value="{{ product.id }}" {% if product_id == product.id %}selected{% endif %}>{{ product.name }}</option>{% endfor %}</select>
+  <select name="batch_id"><option value="">All batches</option>{% for batch in batches %}<option value="{{ batch.id }}" {% if batch_id == batch.id %}selected{% endif %}>{{ batch.batch_number }}</option>{% endfor %}</select>
+  <select name="inspector_id"><option value="">All inspectors</option>{% for inspector in inspectors %}<option value="{{ inspector.id }}" {% if inspector_id == inspector.id %}selected{% endif %}>{{ inspector.username }}</option>{% endfor %}</select>
+  <select name="status_filter"><option value="">All statuses</option><option value="Pass" {% if status_filter == "Pass" %}selected{% endif %}>Pass</option><option value="Fail" {% if status_filter == "Fail" %}selected{% endif %}>Fail</option></select>
+  <input type="date" name="start_date" value="{{ start_date }}" /><input type="date" name="end_date" value="{{ end_date }}" />
+  <button class="button" type="submit">Apply filters</button><a class="button button-secondary" href="/reports/inspection/export?product_id={{ product_id }}&batch_id={{ batch_id }}&inspector_id={{ inspector_id }}&status_filter={{ status_filter }}&start_date={{ start_date }}&end_date={{ end_date }}">Export CSV</a>
+</form>
+<section class="dashboard-summary"><article class="metric-card"><span>Total</span><strong>{{ summary.total }}</strong></article><article class="metric-card"><span>Pass %</span><strong>{{ summary.pass_percent }}%</strong></article><article class="metric-card metric-card-alert"><span>Fail %</span><strong>{{ summary.fail_percent }}%</strong></article></section>
+<div class="table-card"><table class="data-table"><thead><tr><th>Date</th><th>Batch</th><th>Product</th><th>Inspector</th><th>Status</th><th>Score</th></tr></thead><tbody>{% for inspection in items %}<tr><td>{{ inspection.inspection_date }}</td><td>{{ inspection.batch.batch_number }}</td><td>{{ inspection.batch.product.name }}</td><td>{{ inspection.inspector.username }}</td><td><span class="status-pill status-{{ inspection.overall_status|lower }}">{{ inspection.overall_status }}</span></td><td>{{ inspection.inspection_score }}</td></tr>{% else %}<tr><td colspan="6">No inspections match these filters.</td></tr>{% endfor %}</tbody></table></div>
+<p class="section-copy">Page {{ page }} of {{ pages }} · {{ total }} results</p>
+{% endblock %}

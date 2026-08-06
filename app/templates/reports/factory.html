@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Factory Report | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page-header"><div><p class="eyebrow">Reports</p><h1>Factory Report</h1><p class="section-copy">Inspection pass/fail counts aggregated per factory.</p></div><a class="button button-secondary" href="/reports/factory/export">Export CSV</a></section>
+<section class="dashboard-summary"><article class="metric-card"><span>Factories</span><strong>{{ summary.factories }}</strong></article><article class="metric-card"><span>Pass</span><strong>{{ summary.pass_count }}</strong></article><article class="metric-card metric-card-alert"><span>Fail</span><strong>{{ summary.fail_count }}</strong></article></section>
+<div class="table-card"><table class="data-table"><thead><tr><th>Factory</th><th>Code</th><th>Total inspections</th><th>Pass</th><th>Fail</th></tr></thead><tbody>{% for row in items %}<tr><td>{{ row.factory_name }}</td><td>{{ row.factory_code }}</td><td>{{ row.total_inspections }}</td><td>{{ row.pass_count }}</td><td>{{ row.fail_count }}</td></tr>{% else %}<tr><td colspan="5">No factory inspection data yet.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

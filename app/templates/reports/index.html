@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Reports | {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div><p class="eyebrow">Reports</p><h1>Quality Reports</h1><p class="section-copy">Review inspection outcomes, defect status, factory performance, and batch quality history.</p></div>
+</section>
+<section class="dashboard-grid">
+  <article class="chart-card"><h2>Inspection Report</h2><p>Filter inspections by date, product, batch, inspector, and status.</p><a class="button" href="/reports/inspection">Open report</a></article>
+  <article class="chart-card"><h2>Defect Report</h2><p>Track defect counts by type, severity, status, and date range.</p><a class="button" href="/reports/defect">Open report</a></article>
+  <article class="chart-card"><h2>Factory Report</h2><p>Compare pass/fail inspection totals across factories.</p><a class="button" href="/reports/factory">Open report</a></article>
+  <article class="chart-card"><h2>Batch Report</h2><p>Audit inspection history and defect counts by batch.</p><a class="button" href="/reports/batch">Open report</a></article>
+</section>
+{% endblock %}

@@ -16,6 +16,7 @@ from app.routers.dashboard import router as dashboard_router
 from app.routers.factories import router as factories_router
 from app.routers.inspections import router as inspections_router
 from app.routers.products import router as products_router
+from app.routers.reports import router as reports_router
 
 settings = get_settings()
 
@@ -34,6 +35,7 @@ app.include_router(batches_router)
 app.include_router(inspections_router)
 app.include_router(defects_router)
 app.include_router(dashboard_router)
+app.include_router(reports_router)
 templates = Jinja2Templates(directory="app/templates")
 
 
