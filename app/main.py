@@ -24,8 +24,8 @@ from app.routers.reports import router as reports_router
 from app.models.factory import Batch, Defect, Inspection, Product
 
 settings = get_settings()
-from app.database import engine
-from app import models
+from app.database.session import engine
+from app.database.base import Base
 app = FastAPI(
     title=settings.app_name,
     description=settings.app_description,
@@ -35,7 +35,7 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup_event():
-    models.Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.include_router(auth_router)
