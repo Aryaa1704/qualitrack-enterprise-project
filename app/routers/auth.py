@@ -119,7 +119,7 @@ def get_optional_current_user(request: Request, db: Annotated[Session, Depends(g
 def register_page(request: Request) -> HTMLResponse:
     """Render the registration page."""
 
-    return templates.TemplateResponse(
+    return templates.TemplateResponse(request,
         "register.html",
         {"request": request, "app_name": settings.app_name, "app_description": settings.app_description},
     )
@@ -163,7 +163,7 @@ async def register(
 def login_page(request: Request) -> HTMLResponse:
     """Render the login page."""
 
-    return templates.TemplateResponse(
+    return templates.TemplateResponse(request,
         "login.html",
         {"request": request, "app_name": settings.app_name, "app_description": settings.app_description},
     )
@@ -236,7 +236,7 @@ def profile_page(request: Request, db: Annotated[Session, Depends(get_db)]) -> R
     if user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
-    return templates.TemplateResponse(
+    return templates.TemplateResponse(request,
         "profile.html",
         {
             "request": request,
@@ -254,7 +254,7 @@ def not_authorized_page(request: Request, db: Annotated[Session, Depends(get_db)
     user = get_optional_current_user(request, db)
     if user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
-    return templates.TemplateResponse(
+    return templates.TemplateResponse(request,
         "not_authorized.html",
         {
             "request": request,
@@ -275,7 +275,7 @@ def manage_users_page(
     """Render the admin-only user management page."""
 
     users = list(db.scalars(select(User).order_by(User.username)).all())
-    return templates.TemplateResponse(
+    return templates.TemplateResponse(request,
         "users/manage.html",
         {
             "request": request,

@@ -231,7 +231,7 @@ def new_factory_page(request: Request, db: Annotated[Session, Depends(get_db)]) 
     forbidden = redirect_if_forbidden(current_user, ADMIN)
     if forbidden is not None:
         return forbidden
-    return templates.TemplateResponse(
+    return templates.TemplateResponse(request,
         "factories/form.html",
         {
             "request": request,
@@ -290,7 +290,7 @@ def list_factories(
         db.scalars(query.order_by(({"id": Factory.id, "name": Factory.name, "code": Factory.code, "location": Factory.location, "status": Factory.status, "created_at": Factory.created_at}.get(sort_by, Factory.id).desc() if sort_order.lower() == "desc" else {"id": Factory.id, "name": Factory.name, "code": Factory.code, "location": Factory.location, "status": Factory.status, "created_at": Factory.created_at}.get(sort_by, Factory.id).asc()), Factory.id).offset((page - 1) * per_page).limit(per_page)).all()
     )
     if _wants_html(request):
-        return templates.TemplateResponse(
+        return templates.TemplateResponse(request,
             "factories/list.html",
             {
                 "request": request,
@@ -338,7 +338,7 @@ def get_factory(
                 .limit(10)
             ).all()
         )
-        return templates.TemplateResponse(
+        return templates.TemplateResponse(request,
             "factories/detail.html",
             {
                 "request": request,
@@ -379,7 +379,7 @@ def edit_factory_page(
     if forbidden is not None:
         return forbidden
     factory = _get_factory_or_404(db, factory_id)
-    return templates.TemplateResponse(
+    return templates.TemplateResponse(request,
         "factories/form.html",
         {
             "request": request,

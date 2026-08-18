@@ -2,25 +2,25 @@
 
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
+import jwt
+from jwt.exceptions import InvalidTokenError
 
 from app.core.config import get_settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 settings = get_settings()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Return whether a plain password matches a stored hash."""
 
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 
 def get_password_hash(password: str) -> str:
     """Hash a plain-text password for storage."""
 
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def create_access_token(subject: str) -> str:
@@ -36,7 +36,7 @@ def decode_access_token(token: str) -> str | None:
 
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
-    except JWTError:
+    except InvalidTokenError:
         return None
 
     username = payload.get("sub")

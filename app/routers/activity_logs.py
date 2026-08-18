@@ -49,7 +49,7 @@ def list_activity_logs(request: Request, db: Annotated[Session, Depends(get_db)]
     items = list(db.scalars(query.order_by(ActivityLog.created_at.desc(), ActivityLog.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
     if "text/html" in request.headers.get("accept", ""):
         users = list(db.scalars(select(User).order_by(User.username)).all())
-        return templates.TemplateResponse(
+        return templates.TemplateResponse(request,
             "activity-logs/list.html",
             {
                 "request": request,

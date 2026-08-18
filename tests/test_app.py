@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from alembic import command
@@ -1071,7 +1072,7 @@ def test_activity_logs_capture_events_filters_recent_and_dashboard() -> None:
     update_response = auth_client.put(f"/defects/{defect['id']}", json={"status": "In Progress"})
     assert update_response.status_code == 200
 
-    today = "2026-08-06"
+    today = datetime.now(timezone.utc).date().isoformat()
     filtered = auth_client.get(f"/activity-logs?action=defect_updated&user_id={auth_client.get('/auth/me').json()['id']}&start_date={today}&end_date={today}")
     assert filtered.status_code == 200
     assert filtered.json()["total"] >= 1

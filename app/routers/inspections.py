@@ -136,7 +136,7 @@ def new_inspection_page(request: Request, db: Annotated[Session, Depends(get_db)
     current_user = get_optional_current_user(request, db)
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
-    return templates.TemplateResponse("inspections/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspection": None, "selected_batch_id": batch_id, "form_action": "/inspections", "form_title": "New Inspection", **_form_options(db)})
+    return templates.TemplateResponse(request, "inspections/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspection": None, "selected_batch_id": batch_id, "form_action": "/inspections", "form_title": "New Inspection", **_form_options(db)})
 
 
 @router.post("", response_model=InspectionRead, status_code=status.HTTP_201_CREATED)
@@ -166,7 +166,7 @@ def list_inspections(request: Request, db: Annotated[Session, Depends(get_db)], 
     order_by = sort_column.asc() if direction == "asc" else sort_column.desc()
     inspections = list(db.scalars(query.order_by(order_by, Inspection.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
     if _wants_html(request):
-        return templates.TemplateResponse("inspections/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspections": inspections, "search": search or "", "product_id": product_id or "", "batch_id": batch_id or "", "inspector_id": inspector_id or "", "status_filter": status_filter or "", "start_date": start_date or "", "end_date": end_date or "", "page": page, "per_page": per_page, "total": total, "pages": pages, "sort_by": sort_by, "sort_order": direction, "page_size": per_page, **_form_options(db)})
+        return templates.TemplateResponse(request, "inspections/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspections": inspections, "search": search or "", "product_id": product_id or "", "batch_id": batch_id or "", "inspector_id": inspector_id or "", "status_filter": status_filter or "", "start_date": start_date or "", "end_date": end_date or "", "page": page, "per_page": per_page, "total": total, "pages": pages, "sort_by": sort_by, "sort_order": direction, "page_size": per_page, **_form_options(db)})
     return InspectionList(items=inspections, page=page, per_page=per_page, total=total, pages=pages)
 
 
@@ -190,7 +190,7 @@ def batch_inspection_history(batch_id: int, db: Annotated[Session, Depends(get_d
 def get_inspection(inspection_id: int, request: Request, db: Annotated[Session, Depends(get_db)], current_user: Annotated[User, Depends(require_role(ADMIN, QUALITY_MANAGER, INSPECTOR))]) -> Inspection | HTMLResponse:
     inspection = _get_inspection_or_404(db, inspection_id)
     if _wants_html(request):
-        return templates.TemplateResponse("inspections/detail.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspection": inspection})
+        return templates.TemplateResponse(request, "inspections/detail.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspection": inspection})
     return inspection
 
 
@@ -200,7 +200,7 @@ def edit_inspection_page(inspection_id: int, request: Request, db: Annotated[Ses
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
     inspection = _get_inspection_or_404(db, inspection_id)
-    return templates.TemplateResponse("inspections/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspection": inspection, "selected_batch_id": inspection.batch_id, "form_action": f"/inspections/{inspection.id}/edit", "form_title": "Edit Inspection", **_form_options(db)})
+    return templates.TemplateResponse(request, "inspections/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "inspection": inspection, "selected_batch_id": inspection.batch_id, "form_action": f"/inspections/{inspection.id}/edit", "form_title": "Edit Inspection", **_form_options(db)})
 
 
 @router.put("/{inspection_id}", response_model=InspectionRead)

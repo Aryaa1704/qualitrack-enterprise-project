@@ -119,7 +119,7 @@ def new_batch_page(request: Request, db: Annotated[Session, Depends(get_db)], pr
     forbidden = redirect_if_forbidden(current_user, ADMIN)
     if forbidden is not None:
         return forbidden
-    return templates.TemplateResponse("batches/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batch": None, "selected_product_id": product_id, "form_action": "/batches", "form_title": "New Batch", **_form_options(db)})
+    return templates.TemplateResponse(request, "batches/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batch": None, "selected_product_id": product_id, "form_action": "/batches", "form_title": "New Batch", **_form_options(db)})
 
 
 @router.post("", response_model=BatchRead, status_code=status.HTTP_201_CREATED)
@@ -161,7 +161,7 @@ def list_batches(request: Request, db: Annotated[Session, Depends(get_db)], curr
     order_by = sort_column.asc() if direction == "asc" else sort_column.desc()
     batches = list(db.scalars(query.order_by(order_by, Batch.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
     if _wants_html(request):
-        return templates.TemplateResponse("batches/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batches": batches, "search": search or "", "product_id": product_id or "", "production_line_id": production_line_id or "", "status_filter": status_filter or "", "start_date": start_date or "", "end_date": end_date or "", "page": page, "per_page": per_page, "total": total, "pages": pages, "sort_by": sort_by, "sort_order": direction, "page_size": per_page, **_form_options(db)})
+        return templates.TemplateResponse(request, "batches/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batches": batches, "search": search or "", "product_id": product_id or "", "production_line_id": production_line_id or "", "status_filter": status_filter or "", "start_date": start_date or "", "end_date": end_date or "", "page": page, "per_page": per_page, "total": total, "pages": pages, "sort_by": sort_by, "sort_order": direction, "page_size": per_page, **_form_options(db)})
     return BatchList(items=batches, page=page, per_page=per_page, total=total, pages=pages)
 
 
@@ -170,7 +170,7 @@ def get_batch(batch_id: int, request: Request, db: Annotated[Session, Depends(ge
     batch = _get_batch_or_404(db, batch_id)
     if _wants_html(request):
         inspections = list(db.scalars(select(Inspection).where(Inspection.batch_id == batch.id).order_by(Inspection.inspection_date.desc(), Inspection.id.desc())).all())
-        return templates.TemplateResponse("batches/detail.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batch": batch, "inspections": inspections})
+        return templates.TemplateResponse(request, "batches/detail.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batch": batch, "inspections": inspections})
     return batch
 
 
@@ -183,7 +183,7 @@ def edit_batch_page(batch_id: int, request: Request, db: Annotated[Session, Depe
     if forbidden is not None:
         return forbidden
     batch = _get_batch_or_404(db, batch_id)
-    return templates.TemplateResponse("batches/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batch": batch, "selected_product_id": batch.product_id, "form_action": f"/batches/{batch.id}/edit", "form_title": "Edit Batch", **_form_options(db)})
+    return templates.TemplateResponse(request, "batches/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "batch": batch, "selected_product_id": batch.product_id, "form_action": f"/batches/{batch.id}/edit", "form_title": "Edit Batch", **_form_options(db)})
 
 
 @router.put("/{batch_id}", response_model=BatchRead)

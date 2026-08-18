@@ -50,7 +50,7 @@ def dashboard_page(request: Request, db: Annotated[Session, Depends(get_db)]) ->
     forbidden = redirect_if_forbidden(current_user, ADMIN, QUALITY_MANAGER)
     if forbidden is not None:
         return forbidden
-    return templates.TemplateResponse(
+    return templates.TemplateResponse(request,
         "dashboard.html",
         {
             "request": request,

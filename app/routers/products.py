@@ -82,7 +82,7 @@ def new_product_page(request: Request, db: Annotated[Session, Depends(get_db)]) 
     forbidden = redirect_if_forbidden(current_user, ADMIN)
     if forbidden is not None:
         return forbidden
-    return templates.TemplateResponse("products/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "product": None, "form_action": "/products", "form_title": "New Product"})
+    return templates.TemplateResponse(request, "products/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "product": None, "form_action": "/products", "form_title": "New Product"})
 
 
 @router.post("", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
@@ -119,7 +119,7 @@ def list_products(request: Request, db: Annotated[Session, Depends(get_db)], cur
     products = list(db.scalars(query.order_by(order_by, Product.id).offset((page - 1) * per_page).limit(per_page)).all())
     if _wants_html(request):
         categories = list(db.scalars(select(Product.category).distinct().order_by(Product.category)).all())
-        return templates.TemplateResponse("products/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "products": products, "categories": categories, "search": search or "", "category": category or "", "status_filter": status_filter or "", "page": page, "per_page": per_page, "total": total, "pages": pages, "sort_by": sort_by, "sort_order": direction, "page_size": per_page})
+        return templates.TemplateResponse(request, "products/list.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "products": products, "categories": categories, "search": search or "", "category": category or "", "status_filter": status_filter or "", "page": page, "per_page": per_page, "total": total, "pages": pages, "sort_by": sort_by, "sort_order": direction, "page_size": per_page})
     return ProductList(items=products, page=page, per_page=per_page, total=total, pages=pages)
 
 
@@ -128,7 +128,7 @@ def get_product(product_id: int, request: Request, db: Annotated[Session, Depend
     product = _get_product_or_404(db, product_id)
     if _wants_html(request):
         batches = list(db.scalars(select(Batch).where(Batch.product_id == product.id).order_by(Batch.manufacturing_date.desc(), Batch.id.desc())).all())
-        return templates.TemplateResponse("products/detail.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "product": product, "batches": batches})
+        return templates.TemplateResponse(request, "products/detail.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "product": product, "batches": batches})
     return product
 
 
@@ -141,7 +141,7 @@ def edit_product_page(product_id: int, request: Request, db: Annotated[Session, 
     if forbidden is not None:
         return forbidden
     product = _get_product_or_404(db, product_id)
-    return templates.TemplateResponse("products/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "product": product, "form_action": f"/products/{product.id}/edit", "form_title": "Edit Product"})
+    return templates.TemplateResponse(request, "products/form.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "product": product, "form_action": f"/products/{product.id}/edit", "form_title": "Edit Product"})
 
 
 @router.put("/{product_id}", response_model=ProductRead)

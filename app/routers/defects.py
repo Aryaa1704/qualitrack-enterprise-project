@@ -132,7 +132,7 @@ def new_defect_page(request: Request, db: Annotated[Session, Depends(get_db)], i
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
     inspection = _ensure_failed_inspection(db, inspection_id)
-    return templates.TemplateResponse("defects/form.html", _template_context(request, current_user, defect=None, inspection=inspection, form_action="/defects", form_title="Add Defect"))
+    return templates.TemplateResponse(request, "defects/form.html", _template_context(request, current_user, defect=None, inspection=inspection, form_action="/defects", form_title="Add Defect"))
 
 
 @router.post("", response_model=DefectRead, status_code=status.HTTP_201_CREATED)
@@ -161,7 +161,7 @@ def list_defects(request: Request, db: Annotated[Session, Depends(get_db)], curr
     order_by = sort_column.asc() if direction == "asc" else sort_column.desc()
     defects = list(db.scalars(query.order_by(order_by, Defect.id.desc()).offset((page - 1) * per_page).limit(per_page)).all())
     if _wants_html(request):
-        return templates.TemplateResponse("defects/list.html", _template_context(request, current_user, defects=defects, search=search or "", defect_type=defect_type or "", severity=severity or "", status_filter=status_filter or "", start_date=start_date or "", end_date=end_date or "", page=page, per_page=per_page, total=total, pages=pages, sort_by=sort_by, sort_order=direction, page_size=per_page))
+        return templates.TemplateResponse(request, "defects/list.html", _template_context(request, current_user, defects=defects, search=search or "", defect_type=defect_type or "", severity=severity or "", status_filter=status_filter or "", start_date=start_date or "", end_date=end_date or "", page=page, per_page=per_page, total=total, pages=pages, sort_by=sort_by, sort_order=direction, page_size=per_page))
     return DefectList(items=defects, page=page, per_page=per_page, total=total, pages=pages)
 
 
@@ -183,7 +183,7 @@ def edit_defect_page(defect_id: int, request: Request, db: Annotated[Session, De
     if current_user is None:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
     defect = _get_defect_or_404(db, defect_id)
-    return templates.TemplateResponse("defects/form.html", _template_context(request, current_user, defect=defect, inspection=defect.inspection, form_action=f"/defects/{defect.id}/edit", form_title="Edit Defect"))
+    return templates.TemplateResponse(request, "defects/form.html", _template_context(request, current_user, defect=defect, inspection=defect.inspection, form_action=f"/defects/{defect.id}/edit", form_title="Edit Defect"))
 
 
 @router.put("/{defect_id}", response_model=DefectRead)

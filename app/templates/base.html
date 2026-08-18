@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="{{ app_description }}" />
     <title>{% block title %}{{ app_name }}{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/css/base.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', path='css/base.css') }}?v=20260818" />
   </head>
   <body>
     <svg class="icon-sprite" aria-hidden="true" focusable="false">
@@ -20,6 +20,7 @@
       <symbol id="icon-search" viewBox="0 0 24 24"><path d="m21 19.6-5.2-5.2A7.5 7.5 0 1 0 14.4 16L19.6 21 21 19.6ZM4 10.5A5.5 5.5 0 1 1 9.5 16 5.5 5.5 0 0 1 4 10.5Z" /></symbol>
       <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z" /></symbol>
       <symbol id="icon-download" viewBox="0 0 24 24"><path d="M11 3h2v10l3.5-3.5 1.4 1.4L12 16.8l-5.9-5.9 1.4-1.4L11 13V3ZM5 19h14v2H5v-2Z" /></symbol>
+      <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Zm-4.3 11h-3.4a2 2 0 0 0 3.4 0Z" /></symbol>
     </svg>
     <header class="site-header">
       <div class="container header-content">
@@ -35,7 +36,7 @@
             {% if current_user.role in ['admin', 'quality_manager'] %}<a class="nav-link" href="/reports"><svg class="icon"><use href="#icon-report"></use></svg>Reports</a>{% endif %}
             {% if current_user.role in ['admin', 'quality_manager'] %}<a class="nav-link" href="/activity-logs"><svg class="icon"><use href="#icon-activity"></use></svg>Activity Logs</a>{% endif %}
             <details class="notification-bell">
-              <summary aria-label="Recent notifications">🔔 <span id="notification-count" class="notification-count">0</span></summary>
+              <summary aria-label="Recent notifications"><svg class="icon"><use href="#icon-bell"></use></svg><span id="notification-count" class="notification-count">0</span></summary>
               <div class="notification-panel" id="notification-panel"><p class="empty-state">Loading notifications...</p></div>
             </details>
             {% if current_user.role == 'admin' %}<a class="nav-link" href="/auth/users"><svg class="icon"><use href="#icon-user"></use></svg>Users</a>{% endif %}
@@ -61,7 +62,7 @@
         <p>&copy; 2026 {{ app_name }}. Built for manufacturing quality teams.</p>
       </div>
     </footer>
-    <script src="{{ url_for('static', path='/js/ui.js') }}"></script>
+    <script src="{{ url_for('static', path='js/ui.js') }}?v=20260818" defer></script>
     {% if current_user %}
       <script>
         async function loadNotifications() {

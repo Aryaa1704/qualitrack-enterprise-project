@@ -1,5 +1,6 @@
 """FastAPI application entry point for QualiTrack."""
 
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
@@ -26,16 +27,19 @@ from app.models.factory import Batch, Defect, Inspection, Product
 settings = get_settings()
 from app.database.session import engine
 from app.database.base import Base
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
 app = FastAPI(
     title=settings.app_name,
     description=settings.app_description,
     version=settings.app_version,
     debug=settings.debug,
+    lifespan=lifespan,
 )
-
-@app.on_event("startup")
-async def startup_event():
-    Base.metadata.create_all(bind=engine)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.include_router(auth_router)
@@ -89,7 +93,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 def home(request: Request, current_user: Annotated[object | None, Depends(get_optional_current_user)] = None) -> HTMLResponse:
     """Render the public home page."""
 
-    return templates.TemplateResponse(
+    return templates.TemplateResponse(request,
         "home.html",
         {
             "request": request,
@@ -120,7 +124,7 @@ def global_search(request: Request, db: Annotated[Session, Depends(get_db)], cur
         defects = db.scalars(select(Defect).where(or_(Defect.defect_type.ilike(wildcard), Defect.severity.ilike(wildcard), Defect.description.ilike(wildcard), Defect.corrective_action.ilike(wildcard), Defect.status.ilike(wildcard))).order_by(Defect.created_at.desc(), Defect.id.desc()).limit(10)).all()
         groups["defects"] = [{"id": item.id, "label": item.defect_type, "description": f"{item.severity} · {item.status}", "url": f"/defects/{item.id}/edit"} for item in defects]
     if "text/html" in request.headers.get("accept", ""):
-        return templates.TemplateResponse("search.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "q": term_value, "groups": groups})
+        return templates.TemplateResponse(request, "search.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description, "current_user": current_user, "q": term_value, "groups": groups})
     return groups
 
 
