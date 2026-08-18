@@ -1074,14 +1074,8 @@ body {
   box-shadow: 0 1px 0 rgba(23, 33, 38, 0.06);
 }
 .header-content { min-height: 68px; gap: 20px; }
-.brand { color: var(--color-text); font-size: 1.1rem; }
-.brand::before {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 9px;
-  background: var(--color-primary);
-  box-shadow: none;
-}
+.brand { display: inline-flex; align-items: center; line-height: 0; }
+.brand img { display: block; width: 162px; height: auto; }
 .site-nav { gap: 4px; }
 .nav-link,
 .nav-button {

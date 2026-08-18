@@ -24,7 +24,9 @@
     </svg>
     <header class="site-header">
       <div class="container header-content">
-        <a class="brand" href="/">{{ app_name }}</a>
+        <a class="brand" href="/" aria-label="QualiTrack home">
+          <img src="{{ url_for('static', path='images/qualitrack-logo.svg') }}?v=20260818" alt="QualiTrack" />
+        </a>
         <nav class="site-nav" aria-label="Primary navigation">
           {% if current_user %}
             {% if current_user.role in ['admin', 'quality_manager'] %}<a class="nav-link" href="/dashboard"><svg class="icon"><use href="#icon-dashboard"></use></svg>Dashboard</a>{% endif %}
