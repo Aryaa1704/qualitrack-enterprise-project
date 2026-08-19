@@ -1143,6 +1143,22 @@ body {
   text-transform: uppercase;
 }
 .info-card p:last-child { line-height: 1.55; }
+.otp-card { max-width: 500px; }
+.otp-card input {
+  letter-spacing: 0.28em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.form-error {
+  margin: 18px 0 0;
+  padding: 11px 13px;
+  border: 1px solid #f3c4bf;
+  border-radius: var(--radius-sm);
+  background: #fff4f2;
+  color: var(--color-danger);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
 .metric-card { min-height: 120px; padding: 18px; }
 .metric-card strong { color: var(--color-text); }
 .metric-card-alert strong { color: var(--color-danger); }

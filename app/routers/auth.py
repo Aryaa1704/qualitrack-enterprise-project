@@ -129,6 +129,30 @@ def register_page(request: Request) -> HTMLResponse:
     )
 
 
+def _pending_registration_token(username: str, email: str, password_hash: str, role: str, otp: str) -> str:
+    payload = {
+        "type": "registration_pending",
+        "sub": username,
+        "email": email,
+        "password_hash": password_hash,
+        "role": role,
+        "digest": otp_digest(username, otp),
+        "attempts": 0,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.otp_expire_minutes),
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
+
+
+def _decode_pending_registration(token: str) -> dict[str, object] | None:
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm], leeway=0)
+    except jwt.InvalidTokenError:
+        return None
+    if payload.get("type") != "registration_pending":
+        return None
+    return payload
+
+
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register(
     request: Request,
@@ -154,12 +178,20 @@ async def register(
     if existing_user is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email already registered")
 
+    if "text/html" in request.headers.get("accept", ""):
+        otp = generate_otp()
+        try:
+            send_otp_email(email, otp)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        pending = _pending_registration_token(username, email, get_password_hash(password), role, otp)
+        redirect = RedirectResponse(url="/auth/verify-registration", status_code=status.HTTP_303_SEE_OTHER)
+        redirect.set_cookie("pending_registration", pending, httponly=True, samesite="lax", max_age=settings.otp_expire_minutes * 60, secure=False)
+        return redirect
     user = User(username=username, email=email, hashed_password=get_password_hash(password), role=role)
     db.add(user)
     db.commit()
     db.refresh(user)
-    if "text/html" in request.headers.get("accept", ""):
-        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
     return user
 
 
@@ -171,6 +203,45 @@ def login_page(request: Request) -> HTMLResponse:
         "login.html",
         {"request": request, "app_name": settings.app_name, "app_description": settings.app_description},
     )
+
+
+@router.get("/verify-registration", response_class=HTMLResponse, include_in_schema=False)
+def verify_registration_page(request: Request) -> Response:
+    """Render the email verification form for a new registration."""
+
+    if not request.cookies.get("pending_registration"):
+        return RedirectResponse(url="/auth/register", status_code=status.HTTP_303_SEE_OTHER)
+    return templates.TemplateResponse(request, "verify-registration.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description})
+
+
+@router.post("/verify-registration", include_in_schema=False)
+async def verify_registration(request: Request, response: Response, db: Annotated[Session, Depends(get_db)]) -> RedirectResponse:
+    """Create the account only after the submitted email OTP is valid."""
+
+    pending = _decode_pending_registration(request.cookies.get("pending_registration", ""))
+    if pending is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Verification expired. Please register again.")
+    form_data = parse_qs((await request.body()).decode("utf-8"))
+    otp = form_data.get("otp", [""])[0].strip()
+    username = str(pending["sub"])
+    attempts = int(pending.get("attempts", 0))
+    if attempts >= settings.otp_max_attempts:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many invalid codes. Please register again.")
+    if not hmac.compare_digest(str(pending["digest"]), otp_digest(username, otp)):
+        updated = dict(pending)
+        updated["attempts"] = attempts + 1
+        retry = RedirectResponse(url="/auth/verify-registration?error=invalid", status_code=status.HTTP_303_SEE_OTHER)
+        retry.set_cookie("pending_registration", jwt.encode(updated, settings.secret_key, algorithm=settings.jwt_algorithm), httponly=True, samesite="lax", max_age=settings.otp_expire_minutes * 60, secure=False)
+        return retry
+    email = str(pending["email"])
+    if db.scalar(select(User).where(or_(User.username == username, User.email == email))) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username or email already registered")
+    user = User(username=username, email=email, hashed_password=str(pending["password_hash"]), role=str(pending["role"]))
+    db.add(user)
+    db.commit()
+    verified = RedirectResponse(url="/auth/login?registered=1", status_code=status.HTTP_303_SEE_OTHER)
+    verified.delete_cookie("pending_registration")
+    return verified
 
 
 def _pending_login_token(username: str, email: str, otp: str) -> str:

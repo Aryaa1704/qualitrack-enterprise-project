@@ -72,8 +72,9 @@ The application uses FastAPI, SQLAlchemy 2.x, SQLite by default, Alembic-ready m
    ```bash
    uvicorn app.main:app --reload
 
-   Browser sign-in uses email OTP verification. Configure SMTP in `.env` before
-   logging in through the web UI:
+   Browser registration and sign-in use email OTP verification. The OTP is sent
+   to the email address entered by each user. Configure SMTP in `.env` before
+   using the web UI:
 
    ```text
    SMTP_HOST=smtp.example.com
