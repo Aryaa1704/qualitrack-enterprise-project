@@ -54,7 +54,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  const chartColors = ["#1d4ed8", "#16a34a", "#dc2626", "#f59e0b", "#7c3aed", "#0891b2", "#be185d", "#475569"];
+  const chartColors = ["#0f766e", "#15803d", "#b42318", "#b45309", "#0e7490", "#64748b", "#7c3aed", "#334155"];
 
   async function fetchJson(url) {
     const response = await fetch(url, { headers: { "Accept": "application/json" } });
@@ -96,7 +96,7 @@
     hideChartLoading("trend-chart");
     new Chart(document.getElementById("trend-chart"), {
       type: "line",
-      data: { labels: trend.labels, datasets: [{ label: "Inspections", data: trend.counts, borderColor: chartColors[0], backgroundColor: "rgba(29, 78, 216, 0.14)", tension: 0.25, fill: true }] },
+      data: { labels: trend.labels, datasets: [{ label: "Inspections", data: trend.counts, borderColor: chartColors[0], backgroundColor: "rgba(15, 118, 110, 0.14)", tension: 0.25, fill: true }] },
       options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
     });
 

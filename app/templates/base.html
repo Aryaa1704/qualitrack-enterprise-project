@@ -22,6 +22,45 @@
       <symbol id="icon-download" viewBox="0 0 24 24"><path d="M11 3h2v10l3.5-3.5 1.4 1.4L12 16.8l-5.9-5.9 1.4-1.4L11 13V3ZM5 19h14v2H5v-2Z" /></symbol>
       <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Zm-4.3 11h-3.4a2 2 0 0 0 3.4 0Z" /></symbol>
     </svg>
+    {% if current_user %}
+    <aside class="app-sidebar" aria-label="Workspace navigation">
+      <a class="brand sidebar-brand" href="/" aria-label="QualiTrack home">
+        <img src="{{ url_for('static', path='images/qualitrack-logo.svg') }}?v=20260818" alt="QualiTrack" />
+      </a>
+      <div class="sidebar-label">Workspace</div>
+      <nav class="sidebar-nav" aria-label="Workspace sections">
+        {% if current_user.role in ['admin', 'quality_manager'] %}<a class="sidebar-link{% if request.url.path.startswith('/dashboard') %} is-active{% endif %}" href="/dashboard"><svg class="icon"><use href="#icon-dashboard"></use></svg><span>Overview</span></a>{% endif %}
+        {% if current_user.role in ['admin', 'quality_manager'] %}<a class="sidebar-link{% if request.url.path.startswith('/factories') %} is-active{% endif %}" href="/factories"><svg class="icon"><use href="#icon-factory"></use></svg><span>Factories</span></a>{% endif %}
+        {% if current_user.role in ['admin', 'quality_manager'] %}<a class="sidebar-link{% if request.url.path.startswith('/products') %} is-active{% endif %}" href="/products"><svg class="icon"><use href="#icon-box"></use></svg><span>Products</span></a>{% endif %}
+        {% if current_user.role in ['admin', 'quality_manager'] %}<a class="sidebar-link{% if request.url.path.startswith('/batches') %} is-active{% endif %}" href="/batches"><svg class="icon"><use href="#icon-box"></use></svg><span>Batches</span></a>{% endif %}
+        <a class="sidebar-link{% if request.url.path.startswith('/inspections') %} is-active{% endif %}" href="/inspections"><svg class="icon"><use href="#icon-check"></use></svg><span>Inspections</span></a>
+        <a class="sidebar-link{% if request.url.path.startswith('/defects') %} is-active{% endif %}" href="/defects"><svg class="icon"><use href="#icon-alert"></use></svg><span>Defects</span></a>
+        {% if current_user.role in ['admin', 'quality_manager'] %}<a class="sidebar-link{% if request.url.path.startswith('/reports') %} is-active{% endif %}" href="/reports"><svg class="icon"><use href="#icon-report"></use></svg><span>Reports</span></a>{% endif %}
+        {% if current_user.role in ['admin', 'quality_manager'] %}<a class="sidebar-link{% if request.url.path.startswith('/activity-logs') %} is-active{% endif %}" href="/activity-logs"><svg class="icon"><use href="#icon-activity"></use></svg><span>Activity logs</span></a>{% endif %}
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-label">Account</div>
+      {% if current_user.role == 'admin' %}<a class="sidebar-link" href="/auth/users"><svg class="icon"><use href="#icon-user"></use></svg><span>Users</span></a>{% endif %}
+      <a class="sidebar-link" href="/auth/profile"><svg class="icon"><use href="#icon-user"></use></svg><span>Profile</span></a>
+      <form class="sidebar-logout" action="/auth/logout" method="post"><button class="sidebar-link" type="submit"><svg class="icon"><use href="#icon-activity"></use></svg><span>Sign out</span></button></form>
+    </aside>
+    <header class="workspace-header">
+      <div class="workspace-header-inner">
+        <div>
+          <p class="workspace-kicker">Quality operations</p>
+          <p class="workspace-name">{{ app_name }} workspace</p>
+        </div>
+        <div class="workspace-actions">
+          <form class="global-search" action="/search" method="get"><svg class="icon"><use href="#icon-search"></use></svg><input type="search" name="q" placeholder="Search records" aria-label="Global search" value="{{ q|default('') }}"></form>
+          <details class="notification-bell">
+            <summary aria-label="Recent notifications"><svg class="icon"><use href="#icon-bell"></use></svg><span id="notification-count" class="notification-count">0</span></summary>
+            <div class="notification-panel" id="notification-panel"><p class="empty-state">Loading notifications...</p></div>
+          </details>
+          <a class="account-chip" href="/auth/profile"><span class="account-avatar">{{ current_user.username[0]|upper }}</span><span>{{ current_user.username }}</span></a>
+        </div>
+      </div>
+    </header>
+    {% else %}
     <header class="site-header">
       <div class="container header-content">
         <a class="brand" href="/" aria-label="QualiTrack home">
@@ -54,8 +93,9 @@
         </nav>
       </div>
     </header>
+    {% endif %}
 
-    <main class="container page-content">
+    <main class="{% if current_user %}workspace-main{% else %}container{% endif %} page-content">
       {% block content %}{% endblock %}
     </main>
 
