@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Verify sign-in | {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="auth-card otp-card" aria-labelledby="otp-title">
+  <p class="eyebrow">Secure sign-in</p>
+  <h1 id="otp-title">Check your email</h1>
+  <p class="auth-copy">We sent a six-digit verification code to your registered email address. The code expires soon.</p>
+  {% if request.query_params.get('error') == 'invalid' %}<p class="form-error" role="alert">That code is incorrect. Please try again.</p>{% endif %}
+  <form class="auth-form" action="/auth/verify-otp" method="post">
+    <label for="otp">Verification code</label>
+    <input id="otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required autofocus />
+    <button class="button" type="submit">Verify and continue</button>
+  </form>
+  <p class="auth-switch"><a href="/auth/login">Start over</a></p>
+</section>
+{% endblock %}

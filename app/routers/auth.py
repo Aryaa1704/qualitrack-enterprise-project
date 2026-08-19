@@ -1,5 +1,7 @@
 """Authentication routes and dependencies."""
 
+from datetime import datetime, timedelta, timezone
+import hmac
 from typing import Annotated
 from urllib.parse import parse_qs
 
@@ -17,6 +19,8 @@ from app.models.user import User
 from app.schemas.user import Token, UserRead, UserRoleUpdate
 from app.services.activity import LOGIN, log_activity
 from app.services.auth import create_access_token, decode_access_token, get_password_hash, verify_password
+from app.services.otp import generate_otp, otp_digest, send_otp_email
+import jwt
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 templates = Jinja2Templates(directory="app/templates")
@@ -169,6 +173,28 @@ def login_page(request: Request) -> HTMLResponse:
     )
 
 
+def _pending_login_token(username: str, email: str, otp: str) -> str:
+    payload = {
+        "type": "otp_pending",
+        "sub": username,
+        "email": email,
+        "digest": otp_digest(username, otp),
+        "attempts": 0,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.otp_expire_minutes),
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
+
+
+def _decode_pending_login(token: str) -> dict[str, object] | None:
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm], leeway=0)
+    except jwt.InvalidTokenError:
+        return None
+    if payload.get("type") != "otp_pending":
+        return None
+    return payload
+
+
 @router.post("/login", response_model=Token)
 async def login(
     request: Request,
@@ -185,21 +211,18 @@ async def login(
     if user is None or not verify_password(password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
 
-    log_activity(db, user, LOGIN, "user", user.id, f"{user.username} logged in")
-    access_token = create_access_token(user.username)
     if "text/html" in request.headers.get("accept", ""):
-        redirect = RedirectResponse(url="/auth/profile", status_code=status.HTTP_303_SEE_OTHER)
-        redirect.set_cookie(
-            key="access_token",
-            value=f"Bearer {access_token}",
-            httponly=True,
-            samesite="lax",
-            max_age=settings.access_token_expire_minutes * 60,
-            # Set secure=True in production (HTTPS only).
-            secure=False,
-        )
+        otp = generate_otp()
+        try:
+            send_otp_email(user.email, otp)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        redirect = RedirectResponse(url="/auth/verify-otp", status_code=status.HTTP_303_SEE_OTHER)
+        redirect.set_cookie("pending_login", _pending_login_token(user.username, user.email, otp), httponly=True, samesite="lax", max_age=settings.otp_expire_minutes * 60, secure=False)
         return redirect
 
+    log_activity(db, user, LOGIN, "user", user.id, f"{user.username} logged in")
+    access_token = create_access_token(user.username)
     response.set_cookie(
         key="access_token",
         value=f"Bearer {access_token}",
@@ -210,6 +233,46 @@ async def login(
         secure=False,
     )
     return Token(access_token=access_token)
+
+
+@router.get("/verify-otp", response_class=HTMLResponse, include_in_schema=False)
+def verify_otp_page(request: Request) -> Response:
+    """Render the email OTP verification form."""
+
+    if not request.cookies.get("pending_login"):
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+    return templates.TemplateResponse(request, "verify-otp.html", {"request": request, "app_name": settings.app_name, "app_description": settings.app_description})
+
+
+@router.post("/verify-otp", include_in_schema=False)
+async def verify_otp(request: Request, response: Response, db: Annotated[Session, Depends(get_db)]) -> RedirectResponse:
+    """Verify the email OTP and establish the authenticated browser session."""
+
+    pending = _decode_pending_login(request.cookies.get("pending_login", ""))
+    if pending is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Verification expired. Please log in again.")
+    form_data = parse_qs((await request.body()).decode("utf-8"))
+    otp = form_data.get("otp", [""])[0].strip()
+    username = str(pending["sub"])
+    attempts = int(pending.get("attempts", 0))
+    if attempts >= settings.otp_max_attempts:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many invalid codes. Please log in again.")
+    if not hmac.compare_digest(str(pending["digest"]), otp_digest(username, otp)):
+        updated = dict(pending)
+        updated["attempts"] = attempts + 1
+        retry_token = jwt.encode(updated, settings.secret_key, algorithm=settings.jwt_algorithm)
+        retry = RedirectResponse(url="/auth/verify-otp?error=invalid", status_code=status.HTTP_303_SEE_OTHER)
+        retry.set_cookie("pending_login", retry_token, httponly=True, samesite="lax", max_age=settings.otp_expire_minutes * 60, secure=False)
+        return retry
+    user = db.scalar(select(User).where(User.username == username))
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive or missing user")
+    log_activity(db, user, LOGIN, "user", user.id, f"{user.username} logged in")
+    access_token = create_access_token(user.username)
+    verified = RedirectResponse(url="/auth/profile", status_code=status.HTTP_303_SEE_OTHER)
+    verified.set_cookie("access_token", f"Bearer {access_token}", httponly=True, samesite="lax", max_age=settings.access_token_expire_minutes * 60, secure=False)
+    verified.delete_cookie("pending_login")
+    return verified
 
 
 @router.get("/me", response_model=UserRead)
@@ -225,6 +288,7 @@ def logout() -> RedirectResponse:
 
     response = RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie("access_token")
+    response.delete_cookie("pending_login")
     return response
 
 
