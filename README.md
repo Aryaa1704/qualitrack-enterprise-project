@@ -106,13 +106,18 @@ Common codes include `not_authenticated`, `not_authorized`, `not_found`, `confli
 
 ## Screenshots
 
-Add portfolio screenshots here after deploying or running locally:
+<img width="2852" height="1468" alt="image" src="https://github.com/user-attachments/assets/455458ff-8bad-4d6d-a5ba-aa01c8b4fdad" />
 
-- Home/dashboard screenshot: `docs/screenshots/dashboard.png`
-- Factory hierarchy screenshot: `docs/screenshots/factories.png`
-- Inspection workflow screenshot: `docs/screenshots/inspections.png`
-- Defect analytics screenshot: `docs/screenshots/defects.png`
-- Reports screenshot: `docs/screenshots/reports.png`
+
+- Home/dashboard screenshot:
+- <img width="2836" height="1464" alt="image" src="https://github.com/user-attachments/assets/7bd4bd24-8f8d-45be-ab21-2e0dd7a9c45e" />
+- Inspection workflow screenshot:
+- <img width="2848" height="1460" alt="image" src="https://github.com/user-attachments/assets/90088460-193b-4edd-8fd3-12d861038fe3" />
+- Defect analytics screenshot:
+- <img width="2822" height="1324" alt="image" src="https://github.com/user-attachments/assets/9dd925af-f7c2-4068-b038-5a05fd73f3fd" />
+- Reports screenshot:
+- <img width="2838" height="1454" alt="image" src="https://github.com/user-attachments/assets/7b476b60-6600-42dc-a032-3fdb2d7eb08f" />
+
 
 ## Testing
 
